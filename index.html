@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nano Banana | AI Image Generation & Editing – Maktabkhooneh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/course.css">
+</head>
+<body>
+
+  <!-- ============ Header ============ -->
+  <header class="topbar">
+    <div class="topbar__start">
+      <a class="brand" href="#" aria-label="Maktabkhooneh home">
+        <svg class="brand__logo" viewBox="0 0 48 40" aria-hidden="true">
+          <path d="M4 37V16a10 10 0 0 1 20 0 10 10 0 0 1 20 0v21" />
+          <path d="M11 37V19a5.5 5.5 0 0 1 11 0v12l-11 6" />
+          <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
+        </svg>
+      </a>
+      <h1 class="topbar__title">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
+    </div>
+
+    <div class="topbar__end">
+      <div class="streak-wrap">
+        <button class="streak-badge" id="streakBadge" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <span class="streak-badge__flame" data-icon="flame"></span>
+          <span class="streak-badge__count" id="streakCount">6</span>
+          <span class="streak-badge__label">day streak</span>
+        </button>
+        <div class="popover streak-pop" id="streakPop" role="dialog" aria-label="Your learning streak" hidden></div>
+      </div>
+
+      <div class="progress-ring" id="progressRing" title="Course progress">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5b8def" />
+              <stop offset=".55" stop-color="#9b7bf0" />
+              <stop offset="1" stop-color="#10a39a" />
+            </linearGradient>
+          </defs>
+          <circle class="progress-ring__track" cx="22" cy="22" r="18" />
+          <circle class="progress-ring__value" id="progressRingValue" cx="22" cy="22" r="18" />
+        </svg>
+        <span id="progressRingLabel">55%</span>
+      </div>
+
+      <button class="pill pill--soft hide-sm" id="rateBtn" type="button">
+        <span data-icon="star"></span><span>Rate this course</span>
+      </button>
+      <button class="pill pill--solid" id="infoBtn" type="button">
+        <span data-icon="info"></span><span class="hide-xs">Course info</span>
+      </button>
+      <button class="icon-btn icon-btn--soft" type="button" aria-label="Account"><span data-icon="user"></span></button>
+
+      <div class="menu-wrap">
+        <button class="icon-btn" id="menuBtn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><span data-icon="dots"></span></button>
+        <div class="popover menu" id="menu" role="menu" hidden>
+          <button role="menuitem" type="button" data-menu="rate"><span data-icon="star"></span>Rate this course</button>
+          <button role="menuitem" type="button" data-menu="complete"><span data-icon="trophy"></span>Demo: complete everything</button>
+          <button role="menuitem" type="button" data-menu="reset"><span data-icon="rewind"></span>Demo: reset progress</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ Main layout ============ -->
+  <main class="layout">
+
+    <!-- Video -->
+    <section class="card video-card" aria-label="Lesson video">
+      <div class="player" id="player">
+        <div class="player__poster">
+          <div class="poster-logo">
+            <div class="poster-logo__text">
+              <span class="poster-logo__word">maktabkhooneh</span>
+              <span class="poster-logo__tag">Online academy of experts</span>
+            </div>
+            <svg class="poster-logo__mark" viewBox="0 0 48 40" aria-hidden="true">
+              <path d="M4 37V16a10 10 0 0 1 20 0 10 10 0 0 1 20 0v21" />
+              <path d="M11 37V19a5.5 5.5 0 0 1 11 0v12l-11 6" />
+              <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
+            </svg>
+          </div>
+        </div>
+        <p class="player__caption" id="caption" aria-live="polite" hidden></p>
+        <button class="player__big-play" id="bigPlay" type="button" aria-label="Play video"><span data-icon="play"></span></button>
+
+        <div class="player__controls">
+          <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="scrub__fill" id="scrubFill"></div>
+            <div class="scrub__knob" id="scrubKnob"></div>
+          </div>
+          <div class="player__row">
+            <button class="ctrl" id="playBtn" type="button" aria-label="Play"><span data-icon="play"></span></button>
+            <button class="ctrl" id="rewBtn" type="button" aria-label="Back 10 seconds"><span data-icon="rewind"></span></button>
+            <span class="player__time" id="time">0:00 / 2:00</span>
+            <span class="spacer"></span>
+            <button class="ctrl ctrl--text" id="speedBtn" type="button" aria-label="Playback speed">1x</button>
+            <button class="ctrl is-on" id="ccBtn" type="button" aria-label="Captions"><span data-icon="cc"></span></button>
+            <button class="ctrl" type="button" aria-label="Volume"><span data-icon="volume"></span></button>
+            <button class="ctrl" id="fsBtn" type="button" aria-label="Full screen"><span data-icon="fullscreen"></span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="video-card__bar">
+        <button class="pill pill--ghost" id="prevBtn" type="button"><span data-icon="chevronLeft"></span><span class="hide-xs">Previous</span></button>
+        <div class="streak-goal" id="streakGoal"></div>
+        <button class="pill pill--ghost" id="nextBtn" type="button"><span class="hide-xs">Next</span><span data-icon="chevronRight"></span></button>
+      </div>
+    </section>
+
+    <!-- AI assistant -->
+    <div class="ai-slot">
+      <section class="card ai-card" aria-label="AI assistant">
+        <div class="ai-head">
+          <div class="ai-avatar"><span data-icon="sparkles"></span></div>
+          <div class="ai-head__text">
+            <strong>AI Assistant</strong>
+            <span class="ai-status"><i></i>Learning with you</span>
+          </div>
+          <span class="xp-chip" id="xpChip" title="Learning score"><span data-icon="bolt"></span><b id="xpValue">640</b> XP</span>
+        </div>
+
+        <div class="ai-score">
+          <div class="ai-score__row">
+            <span id="levelName">Level 3 · Prompt Explorer</span>
+            <span class="muted" id="levelNext">110 XP to Level 4</span>
+          </div>
+          <div class="bar"><div class="bar__fill" id="levelBar"></div></div>
+        </div>
+
+        <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
+
+        <div class="ai-chips" id="aiChips">
+          <button type="button" class="chip" data-ask="Summarize this lesson">Summarize this lesson</button>
+          <button type="button" class="chip" data-ask="Quiz me">Quiz me</button>
+          <button type="button" class="chip" data-ask="How does my streak work?">My streak</button>
+          <button type="button" class="chip" data-ask="How do I unlock the on-site course?">On-site course</button>
+        </div>
+
+        <form class="ai-input" id="aiForm" autocomplete="off">
+          <input id="aiText" type="text" placeholder="Ask anything about this lesson…" aria-label="Ask the AI assistant">
+          <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send"></span></button>
+        </form>
+      </section>
+    </div>
+
+    <!-- Lesson details -->
+    <section class="card details" aria-label="Lesson details">
+      <div class="details__head">
+        <div class="details__titles">
+          <span class="eyebrow" id="lessonEyebrow">Chapter 0 · Session 1</span>
+          <h2 class="details__title" id="lessonTitle">What is this course and who is it for?</h2>
+        </div>
+        <button class="pill pill--brand" id="addNoteBtn" type="button"><span data-icon="pencil"></span>Add note</button>
+      </div>
+
+      <div class="details__actions">
+        <button class="pill pill--outline" id="likeBtn" type="button" aria-pressed="false"><span data-icon="thumbUp"></span><span id="likeCount">45</span></button>
+        <button class="pill pill--outline" id="dislikeBtn" type="button" aria-pressed="false"><span data-icon="thumbDown"></span><span id="dislikeCount">0</span></button>
+        <button class="pill pill--outline" id="reportBtn" type="button"><span data-icon="alert"></span>Report a problem</button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" role="tab" type="button" data-tab="about" aria-selected="true">About this lesson</button>
+        <button class="tab" role="tab" type="button" data-tab="notes" aria-selected="false">My notes <span class="tab__count" id="notesCount">0</span></button>
+      </div>
+
+      <div class="tab-panel" id="panel-about" role="tabpanel"></div>
+      <div class="tab-panel" id="panel-notes" role="tabpanel" hidden>
+        <form class="note-form" id="noteForm">
+          <label class="note-form__label" for="noteText">Note at <b id="noteStamp">0:00</b></label>
+          <textarea id="noteText" rows="3" placeholder="Write what you want to remember from this moment…"></textarea>
+          <div class="note-form__row">
+            <span class="muted">Notes are saved with the video time.</span>
+            <button class="pill pill--solid" type="submit">Save note</button>
+          </div>
+        </form>
+        <ul class="notes" id="notesList"></ul>
+      </div>
+    </section>
+
+    <!-- Course content sidebar -->
+    <aside class="card sidebar" id="sidebar" aria-label="Course content">
+      <div class="sidebar__head">
+        <h2>Course content</h2>
+        <button class="icon-btn" id="collapseAll" type="button" aria-label="Collapse all chapters"><span data-icon="sidebar"></span></button>
+      </div>
+      <div class="sidebar__summary">
+        <div class="sidebar__summary-row">
+          <span id="sumText">24 of 44 done</span>
+          <span class="muted" id="sumTime">4h 12m total</span>
+        </div>
+        <div class="bar"><div class="bar__fill" id="sumBar"></div></div>
+        <div class="filters" role="group" aria-label="Filter content">
+          <button type="button" class="filter is-active" data-filter="all">All</button>
+          <button type="button" class="filter" data-filter="video">Videos</button>
+          <button type="button" class="filter" data-filter="exercise">AI exercises</button>
+          <button type="button" class="filter" data-filter="exam">Exams</button>
+        </div>
+      </div>
+      <div class="sidebar__scroll">
+        <div class="chapters" id="chapters"></div>
+        <div class="onsite" id="onsite"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal + toasts -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="icon-btn modal__close" type="button" aria-label="Close" data-close><span data-icon="close"></span></button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/course.js"></script>
+</body>
+</html>
