@@ -39,6 +39,9 @@
     clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
     x: 'M7 7l10 10M17 7L7 17',
     target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01',
+    bulb: 'M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z',
+    list: 'M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01',
+    question: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .9-1 1.6v.4M12 16.8h.01',
     coffee: 'M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M11 3v3'
   };
   const FILLED = new Set(['play', 'pause', 'flame', 'sparkles', 'bolt']);
@@ -137,6 +140,7 @@
         'Finish everything and pass the final exam to unlock the on-site workshop at a graduate price.',
         'Let’s get started.'
       ],
+      oneLine: 'You will learn to create and edit images just by describing them, and it works for anyone, not only designers.',
       simple: 'Think of Nano Banana as a photo editor you talk to. Instead of menus and brushes, you say what you want, like “remove the car” or “make it sunset”, and it edits the image. This course teaches you how to say it so the result comes out right the first time.',
       quiz: { q: 'Who is this course designed for?', options: ['Only professional photographers', 'Anyone who wants to create and edit images with AI', 'Only software developers'], answer: 1 }
     }
@@ -227,6 +231,7 @@
         'Pause any time, try it yourself, and ask the AI assistant if you get stuck.'
       ];
       it.simple = extra.simple;
+      it.oneLine = extra.oneLine;
       it.quiz = extra.quiz;
     }
     ALL.push(it);
@@ -296,11 +301,9 @@
     renderXP();
     const chip = $('#xpChip');
     chip.classList.remove('is-pop'); void chip.offsetWidth; chip.classList.add('is-pop');
-    if (!quiet) toast(`+${n} XP`, 'xp', 'bolt');
     const lv = levelOf(state.xp);
     if (lv.n > before) {
-      toast(`Level ${lv.n} unlocked: ${lv.name}`, 'xp', 'trophy');
-      nudge('gold', 'trophy', `Level up: ${lv.name}`, `You reached level ${lv.n}. Learners at this level finish the course 2× more often.`);
+      tip({ kind: 'gold', mood: 'cheer', text: `<b>Level ${lv.n}: ${lv.name}!</b> Every lesson, exercise and quiz adds to your score.` });
     }
   }
   function renderXP() {
@@ -308,7 +311,7 @@
     $('#xpValue').textContent = state.xp.toLocaleString('en-US');
     $('#levelName').textContent = `Level ${lv.n} · ${lv.name}`;
     if (lv.next) {
-      $('#levelNext').textContent = `${lv.next.at - state.xp} XP to Level ${lv.n + 1}`;
+      $('#levelNext').textContent = `${lv.next.at - state.xp} XP to level ${lv.n + 1}`;
       $('#levelBar').style.width = `${((state.xp - lv.at) / (lv.next.at - lv.at)) * 100}%`;
     } else {
       $('#levelNext').textContent = 'Top level';
@@ -373,17 +376,14 @@
 
   function securedToday(source) {
     const s = state.streak;
-    if (s.today) return;
+    if (s.today) return false;
     s.today = true; s.source = source; s.count += 1; s.best = Math.max(s.best, s.count);
     renderStreak();
     const badge = $('#streakBadge');
     badge.classList.remove('is-pop'); void badge.offsetWidth; badge.classList.add('is-pop');
-    toast(`Streak extended to ${s.count} days`, 'flame', 'flame');
-    nudge('flame', 'flame', `${s.count}-day streak!`,
-      source === 'video'
-        ? `You watched a full minute today, so your streak is safe. Come back tomorrow to make it ${s.count + 1}.`
-        : `That exercise counted for today. Come back tomorrow to make it ${s.count + 1}.`);
+    tip({ kind: 'flame', mood: 'cheer', text: `<b>${s.count}-day streak!</b> ${source === 'video' ? 'One minute watched, so today counts.' : 'That exercise counted for today.'} See you tomorrow for day ${s.count + 1}.` });
     addXP(15, true);
+    return true;
   }
 
   /* --------------------------------------------------------------- Player */
@@ -415,6 +415,7 @@
     $('#player').classList.add('is-playing');
     $('#playBtn').innerHTML = icon('pause'); $('#playBtn').setAttribute('aria-label', 'Pause');
     pl.timer = setInterval(tick, 250);
+    if ($('#maki').dataset.mood === 'sleepy') { setMood('happy'); hideTip(); }
     clearTimeout(idleTimer);
     renderPlayer();
   }
@@ -428,8 +429,7 @@
       setTimeout(() => {
         if (pl.playing || pl.nudged.has('pause' + state.activeId)) return;
         pl.nudged.add('pause' + state.activeId);
-        nudge('brand', 'coffee', 'Taking a short break?', `You paused at ${fmt(pl.t)}. Want a quick recap of what we covered, or one question to check it stuck?`,
-          [['Recap so far', 'recap'], ['Quiz me', 'quiz'], ['Keep watching', 'play']]);
+        tip({ text: `Taking a break at ${fmt(pl.t)}? I can recap what we covered so far.`, action: ['Recap', 'recap'], orb: 'recap' });
       }, 1200);
     }
   }
@@ -454,12 +454,11 @@
     renderProgress();
     if (first) addXP(20);
     const nx = nextItem(it);
-    const actions = [];
-    if (nx) actions.push([nx.type === 'video' ? 'Next lesson' : nx.type === 'exercise' ? 'Start AI exercise' : 'Start exam', 'next']);
-    actions.push(['Quiz me on this', 'quiz']);
-    nudge('gold', 'trophy', first ? 'Lesson complete: +20 XP' : 'Finished again',
-      nx ? `Up next: “${esc(nx.title)}”. Learners who keep going right away are 3× more likely to finish the chapter today.` : 'That was the last lesson. You are ready for the final exam.',
-      actions);
+    tip({
+      kind: 'gold', mood: 'cheer', orb: 'quiz',
+      text: nx ? `<b>${first ? 'Lesson done, +20 XP.' : 'Finished again.'}</b> Up next: ${esc(nx.title)}` : '<b>That was the last lesson.</b> You are ready for the final exam.',
+      action: nx ? [nx.type === 'video' ? 'Next lesson' : nx.type === 'exercise' ? 'Start exercise' : 'Start exam', 'next'] : ['Final exam', 'exam', 'final']
+    });
   }
   function seekBack(delta) {
     const before = pl.t;
@@ -470,7 +469,7 @@
     pl.rewinds++;
     if (pl.rewinds >= 2 && !pl.nudged.has('rewind' + state.activeId)) {
       pl.nudged.add('rewind' + state.activeId);
-      nudge('brand', 'target', 'This part looks tricky', 'You replayed this section a couple of times. Want me to explain it in simpler words?', [['Explain simply', 'simple'], ['No thanks', 'dismiss']]);
+      tip({ mood: 'think', moodMs: 3000, text: 'You replayed this part a few times. Want me to explain it in simpler words?', action: ['Simplify', 'simple'], orb: 'simplify' });
     }
   }
 
@@ -504,12 +503,53 @@
     if (!actions || !actions.length) return '';
     return `<div class="msg__actions">${actions.map(([label, act, arg]) => `<button type="button" data-act="${act}"${arg != null ? ` data-arg="${arg}"` : ''}>${label}</button>`).join('')}</div>`;
   }
+  /* Maki's face. Moods: happy, think, cheer, sleepy */
+  function makiSVG() {
+    return `<svg class="maki__svg" viewBox="0 0 64 64" aria-hidden="true">
+      <path class="m-ear" d="M14 23L10.5 6.5 25.5 15z"/><path class="m-ear" d="M50 23l3.5-16.5L38.5 15z"/>
+      <ellipse class="m-body" cx="32" cy="37" rx="24" ry="23"/>
+      <path class="m-belly" d="M22 53.5c3 3.7 6.4 5.5 10 5.5s7-1.8 10-5.5c-3 1.4-6.4 2.1-10 2.1s-7-.7-10-2.1z"/>
+      <circle class="m-disc" cx="23.5" cy="33.5" r="10.5"/><circle class="m-disc" cx="40.5" cy="33.5" r="10.5"/>
+      <g class="m-open"><g class="m-pupils">
+        <circle class="m-pupil" cx="24" cy="34.5" r="4.8"/><circle class="m-pupil" cx="40" cy="34.5" r="4.8"/>
+        <circle class="m-shine" cx="25.7" cy="32.7" r="1.6"/><circle class="m-shine" cx="41.7" cy="32.7" r="1.6"/>
+      </g></g>
+      <g class="m-arc"><path d="M18.5 36q5-6.5 10 0"/><path d="M35.5 36q5-6.5 10 0"/></g>
+      <g class="m-line"><path d="M19 35h9"/><path d="M36 35h9"/></g>
+      <path class="m-beak" d="M28.8 41.2Q32 39.6 35.2 41.2L32 46.8z"/>
+      <ellipse class="m-cheek" cx="14.8" cy="43" rx="3.4" ry="2.1"/><ellipse class="m-cheek" cx="49.2" cy="43" rx="3.4" ry="2.1"/>
+      <path class="m-zz" d="M52 2h5l-5 5h5M58.5 10h3l-3 3h3"/>
+    </svg>`;
+  }
+  let moodTimer = null;
+  function setMood(mood, ms) {
+    $('#maki').dataset.mood = mood;
+    clearTimeout(moodTimer);
+    if (ms) moodTimer = setTimeout(() => { $('#maki').dataset.mood = 'happy'; }, ms);
+  }
+
+  /* Behaviour nudges: one tip bubble at a time instead of messages piling up in the chat */
+  let tipTimer = null;
+  function tip({ kind = 'brand', mood = 'happy', moodMs = 3500, text, action, orb }) {
+    const el = $('#tip');
+    el.className = `tip tip--${kind}`;
+    el.innerHTML = `<p>${text}</p>${action ? `<button class="tip__btn" type="button" data-act="${action[1]}"${action[2] != null ? ` data-arg="${action[2]}"` : ''}>${action[0]}</button>` : ''}<button class="tip__x" type="button" data-act="tip-close" aria-label="Dismiss">${icon('close')}</button>`;
+    el.hidden = false;
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+    setMood(mood, mood === 'sleepy' ? 0 : moodMs);
+    if (orb) markOrb(orb, true);
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(hideTip, 15000);
+  }
+  function hideTip() { clearTimeout(tipTimer); $('#tip').hidden = true; }
+  function markOrb(name, on) { const o = $(`[data-orb="${name}"]`); if (o) o.classList.toggle('has-dot', on); }
+
   function aiSay(html, actions) {
-    const el = document.createElement('div');
-    el.className = 'msg msg--ai';
-    el.innerHTML = html + actionsHTML(actions);
-    feed().appendChild(el); scrollFeed();
-    return el;
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    row.innerHTML = `<span class="maki maki--sm">${makiSVG()}</span><div class="msg msg--ai">${html}${actionsHTML(actions)}</div>`;
+    feed().appendChild(row); scrollFeed();
+    return row.querySelector('.msg');
   }
   function userSay(text) {
     const el = document.createElement('div');
@@ -517,19 +557,39 @@
     el.textContent = text;
     feed().appendChild(el); scrollFeed();
   }
-  function nudge(kind, ic, title, text, actions) {
-    const el = document.createElement('div');
-    el.className = `nudge nudge--${kind}`;
-    el.innerHTML = `<div class="nudge__icon">${icon(ic)}</div><div><span class="nudge__label">Coach</span><strong>${title}</strong><p>${text}</p>${actionsHTML(actions)}</div>`;
-    feed().appendChild(el); scrollFeed();
-    return el;
-  }
   function typing(then) {
-    const el = document.createElement('div');
-    el.className = 'msg msg--ai typing';
-    el.innerHTML = '<i></i><i></i><i></i>';
-    feed().appendChild(el); scrollFeed();
-    setTimeout(() => { el.remove(); then(); }, 650 + Math.random() * 500);
+    const row = document.createElement('div');
+    row.className = 'msg-row';
+    row.innerHTML = `<span class="maki maki--sm">${makiSVG()}</span><div class="msg msg--ai typing"><i></i><i></i><i></i></div>`;
+    feed().appendChild(row); scrollFeed();
+    setMood('think');
+    setTimeout(() => { row.remove(); setMood('happy'); then(); }, 650 + Math.random() * 500);
+  }
+
+  const ORB_PROMPTS = { motivate: 'Motivate me', simplify: 'Make this simpler', recap: 'Recap this lesson', quiz: 'Quiz me' };
+  let motiveIdx = 0;
+  function motivate() {
+    const st = stats();
+    const k = state.streak;
+    const leftMin = ALL.filter((i) => !i.done).reduce((m, i) => m + itemMinutes(i), 0);
+    const steps = [st.vDone === st.vTotal, st.eDone === st.eTotal, st.finalDone].filter((x) => !x).length;
+    const lines = [
+      st.pct < 100
+        ? { h: `${st.pct}% done. The hardest part is behind you.`, p: 'Starting is the hard bit, and you did that weeks ago. Keep the momentum going.' }
+        : { h: 'Course complete!', p: 'You finished every lesson. That takes real commitment.' },
+      k.today
+        ? { h: `${k.count} days in a row!`, p: 'Today already counts. Showing up every day is what turns practice into skill.' }
+        : { h: `${k.count}-day streak. ${fmt(60 - k.watched)} to go today.`, p: 'One more minute of video, or one exercise, and today counts too.', a: ['Play lesson', 'play'] },
+      leftMin
+        ? { h: `About ${Math.max(1, Math.round(leftMin / 60))} hours left`, p: `That is ${Math.ceil(leftMin / 15)} short sessions of 15 minutes. Two a day and you finish in about ${Math.ceil(leftMin / 30)} days.` }
+        : { h: 'Nothing left but practice', p: 'Try a new prompt every day to keep your skills sharp.' },
+      steps
+        ? { h: `${steps} step${steps > 1 ? 's' : ''} to the on-site workshop`, p: `Finish ${steps > 1 ? 'them' : 'it'} and you join the workshop for ${toman(ONSITE.newPrice)} Toman instead of ${toman(ONSITE.oldPrice)}.`, a: ['See the steps', 'onsite'] }
+        : { h: 'The on-site workshop is yours', p: 'You unlocked it. Your graduate price is held for 30 days.', a: ['See the offer', 'onsite'] }
+    ];
+    const m = lines[motiveIdx++ % lines.length];
+    setMood('cheer', 2500);
+    return aiSay(`<div class="msg__title msg__title--flame">${icon('flame')}${m.h}</div>${m.p}`, m.a ? [m.a, ['Another one', 'motivate']] : [['Another one', 'motivate']]);
   }
 
   function ask(text) {
@@ -541,12 +601,16 @@
     const s = q.toLowerCase();
     const it = active();
     const st = stats();
+    if (/motivat|encourag|tired|bored|give up|lazy/.test(s)) return motivate();
+    if (/even simpler|one line|simplest/.test(s)) {
+      return aiSay(`<b>In one line:</b> ${esc(it.oneLine || 'Say what to change, say what to keep, then fix one thing at a time.')}`, [['Give me an example', 'example']]);
+    }
     if (/summar|recap|tl;?dr|so far/.test(s)) {
       return aiSay(`Here is the short version of <b>${esc(it.title)}</b>:<ul>${it.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`, [['Quiz me', 'quiz']]);
     }
     if (/quiz|test me|check me/.test(s)) return quiz();
     if (/simpl|explain|don.?t (get|understand)|confus|eli5/.test(s)) {
-      return aiSay(it.simple || `In plain words: “${esc(it.title)}” is about telling Nano Banana exactly what to change and what to keep. Name the thing, describe the change, and say what must stay the same. Then look at the result and ask for one small fix at a time.`, [['Give me an example', 'example']]);
+      return aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}In simple words</div>${esc(it.simple || `“${it.title}” is about telling Nano Banana exactly what to change and what to keep. Name the thing, describe the change, and say what must stay the same. Then look at the result and ask for one small fix at a time.`)}`, [['Even simpler', 'simpler'], ['Give me an example', 'example']]);
     }
     if (/example/.test(s)) {
       return aiSay('Here is an example you can paste into Gemini:<br><i>“Replace the background with a cozy kitchen at morning light, keep the mug exactly as it is, soft shadows, shallow depth of field.”</i>');
@@ -578,7 +642,7 @@
       return aiSay('Account setup and buying access are covered step by step in <b>Chapter 1</b>. Start with “Creating your Google AI Studio account”.', [['Open that lesson', 'lesson', 'u3']]);
     }
     if (/^(hi|hello|hey|salam)\b/.test(s)) {
-      return aiSay('Hi! Ask me anything about this lesson, or try “Quiz me” to check what you remember.');
+      return aiSay('Hi! I’m Maki. Ask me anything about this lesson, or tap a circle on the left.');
     }
     return aiSay(`Good question. In the context of “${esc(it.title)}”: start by saying exactly what you want to change, then what must stay the same, and refine with one small request at a time. Want me to turn this into a short practice task?`, [['Yes, quiz me', 'quiz'], ['Explain simply', 'simple']]);
   }
@@ -593,11 +657,15 @@
   function runAction(btn) {
     const act = btn.dataset.act;
     const arg = btn.dataset.arg;
+    if (btn.closest('#tip')) hideTip();
     switch (act) {
       case 'play': play(); break;
       case 'recap': ask('Recap what we covered so far'); break;
       case 'quiz': ask('Quiz me'); break;
-      case 'simple': ask('Explain it more simply'); break;
+      case 'simple': ask('Make this simpler'); break;
+      case 'simpler': ask('Even simpler, in one line'); break;
+      case 'motivate': ask('Motivate me'); break;
+      case 'tip-close': hideTip(); break;
       case 'example': ask('Give me an example'); break;
       case 'exercise': openExercise(arg); break;
       case 'exam': openExam(arg); break;
@@ -605,7 +673,7 @@
       case 'goto': goTo(byId(arg)); break;
       case 'next': goTo(nextItem(active())); break;
       case 'onsite': $('#onsite').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); $('#onsite').animate?.([{ boxShadow: '0 0 0 0 rgba(16,163,154,.6)' }, { boxShadow: '0 0 0 10px rgba(16,163,154,0)' }], { duration: 900, iterations: 2 }); break;
-      case 'dismiss': btn.closest('.nudge, .msg')?.remove(); break;
+      case 'dismiss': btn.closest('.msg-row, .msg')?.remove(); break;
       case 'answer': {
         const msg = btn.closest('.msg');
         const right = Number(msg.dataset.answer);
@@ -855,10 +923,11 @@
       $('#exRetry').addEventListener('click', () => openExercise(ref));
       addXP(xp, true);
       renderProgress();
-      securedToday('exercise');
-      nudge(pass ? 'gold' : 'brand', pass ? 'trophy' : 'target', pass ? `Exercise done: ${avg}%` : `Exercise: ${avg}%`,
-        pass ? `+${xp} XP. ${stats().eDone}/${stats().eTotal} AI exercises complete, one step closer to the on-site workshop.` : 'Missing pieces usually come down to lighting and composition. Want a quick refresher?',
-        pass && nextItem(item) ? [['Continue', 'goto', nextItem(item).id]] : pass ? null : [['Refresh me on prompts', 'simple']]);
+      if (!securedToday('exercise')) {
+        tip(pass
+          ? { kind: 'gold', mood: 'cheer', text: `<b>Exercise done: ${avg}%.</b> ${stats().eDone}/${stats().eTotal} AI exercises complete.`, action: nextItem(item) ? ['Continue', 'goto', nextItem(item).id] : null }
+          : { mood: 'think', text: `<b>${avg}% this time.</b> Lighting and composition are usually what’s missing.`, action: ['Simplify', 'simple'], orb: 'simplify' });
+      }
     }
     renderQ();
   }
@@ -932,18 +1001,15 @@
       renderProgress();
       const st = stats();
       if (pass && ref === 'final' && st.vDone === st.vTotal && st.eDone === st.eTotal) celebrateUnlock();
-      else nudge(pass ? 'gold' : 'brand', pass ? 'trophy' : 'target', pass ? `${ex.title} passed: ${score}%` : `${ex.title}: ${score}%`,
-        pass ? `+${xp} XP.${ref === 'final' ? ' Finish the remaining lessons and exercises to unlock the on-site workshop.' : ''}` : 'Let’s review the topics you missed. A short recap usually adds 20 points on the retake.',
-        pass ? (ref === 'final' ? [['What’s left?', 'onsite']] : null) : [['Recap key ideas', 'recap']]);
+      else tip(pass
+        ? { kind: 'gold', mood: 'cheer', text: `<b>${esc(ex.title)} passed: ${score}%.</b>${ref === 'final' ? ' Finish the remaining lessons and exercises to unlock the on-site workshop.' : ''}`, action: ref === 'final' ? ['What’s left?', 'onsite'] : null }
+        : { mood: 'think', text: `<b>${esc(ex.title)}: ${score}%.</b> A quick recap usually helps a lot on the retake.`, action: ['Recap', 'recap'], orb: 'recap' });
     }
   }
 
   function celebrateUnlock() {
     renderProgress();
-    toast('On-site workshop unlocked', 'brand', 'unlock');
-    nudge('gold', 'unlock', 'You unlocked the on-site workshop!',
-      `You finished every lesson and exercise and passed the final exam. Your graduate price is <b>${toman(ONSITE.newPrice)} Toman</b> instead of ${toman(ONSITE.oldPrice)}.`,
-      [['See the offer', 'onsite']]);
+    tip({ kind: 'gold', mood: 'cheer', moodMs: 5000, text: `<b>You unlocked the on-site workshop!</b> Your graduate price is ${toman(ONSITE.newPrice)} Toman.`, action: ['See offer', 'onsite'] });
   }
 
   function openOnsite() {
@@ -1002,8 +1068,7 @@
   function demoComplete() {
     ALL.forEach((i) => { i.done = true; });
     state.scores.final = 92;
-    if (!state.streak.today) securedToday('video');
-    renderProgress();
+    securedToday('video');
     celebrateUnlock();
     $('#onsite').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -1013,6 +1078,7 @@
     state.xp = 640;
     Object.assign(state.streak, { count: 6, best: 14, today: false, watched: 0, source: null });
     pl.nudged.clear();
+    hideTip(); setMood('happy'); $$('.orb').forEach((o) => o.classList.remove('has-dot'));
     renderXP(); renderStreak(); renderProgress(); loadLesson('u1');
     toast('Demo progress reset', 'brand', 'rewind');
   }
@@ -1040,7 +1106,7 @@
       $('#speedBtn').textContent = `${pl.speed}x`;
       if (pl.speed === 2 && !pl.nudged.has('speed')) {
         pl.nudged.add('speed');
-        nudge('brand', 'bolt', 'Watching at 2×', 'Nice pace! I’ll ask you one quick question when the lesson ends to make sure it sticks.');
+        tip({ text: 'Nice pace at 2×! I’ll have a quick question ready when you finish.', orb: 'quiz' });
       }
     });
     $('#ccBtn').addEventListener('click', () => { pl.cc = !pl.cc; $('#ccBtn').classList.toggle('is-on', pl.cc); renderPlayer(); });
@@ -1071,7 +1137,7 @@
       if (document.hidden && pl.playing) { pause(true); pl.hiddenWhilePlaying = true; }
       else if (!document.hidden && pl.hiddenWhilePlaying) {
         pl.hiddenWhilePlaying = false;
-        nudge('brand', 'play', 'Welcome back', `I paused the video for you at ${fmt(pl.t)} while you were away.`, [['Resume', 'play']]);
+        tip({ text: `Welcome back! I paused the video at ${fmt(pl.t)} for you.`, action: ['Resume', 'play'] });
       }
     });
     $('#prevBtn').addEventListener('click', () => goTo(prevItem(active())));
@@ -1085,8 +1151,13 @@
       $('#aiText').value = '';
       ask(v);
     });
-    $('#aiChips').addEventListener('click', (e) => { const b = e.target.closest('[data-ask]'); if (b) ask(b.dataset.ask); });
-    $('#aiFeed').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) runAction(b); });
+    $('#aiRail').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-orb]');
+      if (!b) return;
+      markOrb(b.dataset.orb, false);
+      ask(ORB_PROMPTS[b.dataset.orb]);
+    });
+    $('.ai-card').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) runAction(b); });
 
     // Sidebar
     $('#chapters').addEventListener('click', (e) => {
@@ -1168,13 +1239,12 @@
     loadLesson(state.activeId);
 
     const st = stats();
-    aiSay(`Welcome back! You are <b>${st.pct}%</b> through the course and on a <b>${state.streak.count}-day streak</b>. Ask me anything while you watch: I can summarize, explain, or quiz you.`);
-    setTimeout(() => nudge('gold', 'target', 'Suggested for you',
-      'You finished 3 lessons in Chapter 4 yesterday. Its AI exercise takes about 5 minutes, earns 50 XP and keeps your streak alive today.',
-      [['Start exercise', 'exercise', 'ex4'], ['Later', 'dismiss']]), 900);
+    $('#maki').innerHTML = makiSVG();
+    aiSay(`Hi, I’m <b>Maki</b>, your study buddy. You’re <b>${st.pct}%</b> through the course. Ask me anything, or tap a circle on the left when you need a boost or a simpler explanation.`);
+    setTimeout(() => tip({ kind: 'gold', text: 'Chapter 4’s AI exercise takes 5 minutes and keeps your streak alive today.', action: ['Start', 'exercise', 'ex4'] }), 900);
     idleTimer = setTimeout(() => {
       if (pl.playing || state.streak.today) return;
-      nudge('flame', 'flame', `Your ${state.streak.count}-day streak is waiting`, 'One minute of video or one AI exercise is all it takes today.', [['Play lesson', 'play']]);
+      tip({ kind: 'flame', mood: 'sleepy', text: `<b>Your ${state.streak.count}-day streak is waiting.</b> One minute of video is enough today.`, action: ['Play', 'play'], orb: 'motivate' });
     }, 40000);
   }
 

@@ -117,35 +117,34 @@
 
     <!-- AI assistant -->
     <div class="ai-slot">
-      <section class="card ai-card" aria-label="AI assistant">
+      <section class="card ai-card" aria-label="Maki, your AI study buddy">
         <div class="ai-head">
-          <div class="ai-avatar"><span data-icon="sparkles"></span></div>
+          <div class="maki maki--lg" id="maki" data-mood="happy" aria-hidden="true"></div>
           <div class="ai-head__text">
-            <strong>AI Assistant</strong>
-            <span class="ai-status"><i></i>Learning with you</span>
+            <strong>Maki <span class="ai-badge">AI study buddy</span></strong>
+            <span class="ai-level" id="levelName">Level 3 · Prompt Explorer</span>
+            <span class="ai-progress">
+              <span class="bar bar--xp"><span class="bar__fill" id="levelBar"></span></span>
+              <span class="muted" id="levelNext">110 XP to level 4</span>
+            </span>
           </div>
           <span class="xp-chip" id="xpChip" title="Learning score"><span data-icon="bolt"></span><b id="xpValue">640</b> XP</span>
         </div>
 
-        <div class="ai-score">
-          <div class="ai-score__row">
-            <span id="levelName">Level 3 · Prompt Explorer</span>
-            <span class="muted" id="levelNext">110 XP to Level 4</span>
-          </div>
-          <div class="bar"><div class="bar__fill" id="levelBar"></div></div>
-        </div>
+        <div class="tip" id="tip" role="status" hidden></div>
 
-        <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
-
-        <div class="ai-chips" id="aiChips">
-          <button type="button" class="chip" data-ask="Summarize this lesson">Summarize this lesson</button>
-          <button type="button" class="chip" data-ask="Quiz me">Quiz me</button>
-          <button type="button" class="chip" data-ask="How does my streak work?">My streak</button>
-          <button type="button" class="chip" data-ask="How do I unlock the on-site course?">On-site course</button>
+        <div class="ai-body">
+          <nav class="ai-rail" id="aiRail" aria-label="Quick help from Maki">
+            <button class="orb orb--flame" type="button" data-orb="motivate"><span class="orb__c"><span data-icon="flame"></span><i class="orb__dot"></i></span><span class="orb__l">Motivate</span></button>
+            <button class="orb orb--brand" type="button" data-orb="simplify"><span class="orb__c"><span data-icon="bulb"></span><i class="orb__dot"></i></span><span class="orb__l">Simplify</span></button>
+            <button class="orb orb--violet" type="button" data-orb="recap"><span class="orb__c"><span data-icon="list"></span><i class="orb__dot"></i></span><span class="orb__l">Recap</span></button>
+            <button class="orb orb--gold" type="button" data-orb="quiz"><span class="orb__c"><span data-icon="question"></span><i class="orb__dot"></i></span><span class="orb__l">Quiz me</span></button>
+          </nav>
+          <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
         </div>
 
         <form class="ai-input" id="aiForm" autocomplete="off">
-          <input id="aiText" type="text" placeholder="Ask anything about this lesson…" aria-label="Ask the AI assistant">
+          <input id="aiText" type="text" placeholder="Ask Maki about this lesson…" aria-label="Ask Maki">
           <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send"></span></button>
         </form>
       </section>
