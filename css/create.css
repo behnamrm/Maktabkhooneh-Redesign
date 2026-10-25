@@ -112,7 +112,6 @@ a.pill { text-decoration: none; color: inherit; }
 
 /* Building animation */
 .building { display: grid; justify-items: center; gap: 18px; padding: 40px 0; text-align: center; }
-.maki--xl { width: 104px; height: 104px; padding: 10px; border-radius: 50%; background: var(--brand-soft); }
 .build-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; text-align: left; }
 .build-steps li { display: flex; align-items: center; gap: 10px; color: var(--ink-3); transition: color .3s; }
 .build-steps .ico { width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--line); color: var(--surface); transition: background .3s; }
@@ -133,7 +132,8 @@ a.pill { text-decoration: none; color: inherit; }
 .r-item { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px 10px 16px; border-top: 1px solid var(--line); }
 .r-item__ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
 .r-item__ic .ico { width: 14px; height: 14px; }
-.r-item--ex .r-item__ic { background: var(--brand-soft); color: var(--brand-ink); }
+.r-item--ex .r-item__ic { background: #13201f; color: #7ee3da; }
+.r-item--quiz .r-item__ic { background: #efedfd; color: #6a5ae0; }
 .r-item--project .r-item__ic { background: #efedfd; color: #5b4bd6; }
 .r-item__body { display: grid; min-width: 0; }
 .r-item__title { font-weight: 600; font-size: 13.5px; }

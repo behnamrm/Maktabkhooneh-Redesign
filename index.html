@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Nano Banana | AI Image Generation & Editing – Maktabkhooneh</title>
+  <title>Python Fundamentals – Maktabkhooneh</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
@@ -21,7 +21,7 @@
           <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
         </svg>
       </a>
-      <h1 class="topbar__title" id="courseTitle">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
+      <h1 class="topbar__title" id="courseTitle">Python Fundamentals</h1>
     </div>
 
     <div class="topbar__end">
@@ -55,12 +55,13 @@
       <button class="pill pill--solid" id="infoBtn" type="button">
         <span data-icon="info"></span><span class="hide-xs">Course info</span>
       </button>
-      <button class="icon-btn icon-btn--soft" type="button" aria-label="Account"><span data-icon="user"></span></button>
+      <button class="icon-btn icon-btn--soft avatar-btn" id="accountBtn" type="button" aria-label="Your profile"><span class="avatar" data-avatar></span></button>
 
       <div class="menu-wrap">
         <button class="icon-btn" id="menuBtn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><span data-icon="dots"></span></button>
         <div class="popover menu" id="menu" role="menu" hidden>
           <a role="menuitem" href="create.html"><span data-icon="sparkles"></span>Create a course with AI</a>
+          <button role="menuitem" type="button" data-menu="profile"><span data-icon="user"></span>Edit your character</button>
           <button role="menuitem" type="button" data-menu="rate"><span data-icon="star"></span>Rate this course</button>
           <button role="menuitem" type="button" data-menu="complete"><span data-icon="trophy"></span>Demo: complete everything</button>
           <button role="menuitem" type="button" data-menu="reset"><span data-icon="rewind"></span>Demo: reset progress</button>
@@ -118,12 +119,14 @@
 
     <!-- AI assistant -->
     <div class="ai-slot">
-      <section class="card ai-card" aria-label="Maki, your AI study buddy">
+      <section class="card ai-card" aria-label="Your AI assistant">
         <div class="ai-head">
-          <div class="maki maki--lg" id="maki" data-mood="happy" aria-hidden="true"></div>
+          <button class="ai-head__who" id="assistantHead" type="button" aria-label="Edit your assistant’s look">
+            <span class="avatar avatar--lg" id="assistantFace" data-avatar data-mood="happy"></span>
+          </button>
           <div class="ai-head__text">
-            <strong>Maki <span class="ai-badge">AI study buddy</span></strong>
-            <span class="ai-level" id="levelName">Level 3 · Prompt Explorer</span>
+            <strong><span data-assistant-name>Sam’s Assistant</span> <span class="ai-badge">AI</span></strong>
+            <span class="ai-level" id="levelName">Level 3 · Loop Learner</span>
             <span class="ai-progress">
               <span class="bar bar--xp"><span class="bar__fill" id="levelBar"></span></span>
               <span class="muted" id="levelNext">110 XP to level 4</span>
@@ -132,20 +135,20 @@
           <span class="xp-chip" id="xpChip" title="Learning score"><span data-icon="bolt"></span><b id="xpValue">640</b> XP</span>
         </div>
 
-        <div class="tip" id="tip" role="status" hidden></div>
+        <div class="quiz-bar" id="quizBar" hidden></div>
 
         <div class="ai-body">
-          <nav class="ai-rail" id="aiRail" aria-label="Quick help from Maki">
-            <button class="orb orb--flame" type="button" data-orb="motivate"><span class="orb__c"><span data-icon="flame"></span><i class="orb__dot"></i></span><span class="orb__l">Motivate</span></button>
+          <nav class="ai-rail" id="aiRail" aria-label="Quick help from your assistant">
             <button class="orb orb--brand" type="button" data-orb="simplify"><span class="orb__c"><span data-icon="bulb"></span><i class="orb__dot"></i></span><span class="orb__l">Simplify</span></button>
-            <button class="orb orb--violet" type="button" data-orb="recap"><span class="orb__c"><span data-icon="list"></span><i class="orb__dot"></i></span><span class="orb__l">Recap</span></button>
-            <button class="orb orb--gold" type="button" data-orb="quiz"><span class="orb__c"><span data-icon="question"></span><i class="orb__dot"></i></span><span class="orb__l">Quiz me</span></button>
+            <button class="orb orb--violet" type="button" data-orb="howto"><span class="orb__c"><span data-icon="list"></span><i class="orb__dot"></i></span><span class="orb__l">How to</span></button>
+            <button class="orb orb--gold" type="button" data-orb="recap"><span class="orb__c"><span data-icon="book"></span><i class="orb__dot"></i></span><span class="orb__l">Recap</span></button>
+            <button class="orb orb--flame" type="button" data-orb="quiz"><span class="orb__c"><span data-icon="question"></span><i class="orb__dot"></i></span><span class="orb__l">Quiz me</span></button>
           </nav>
           <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
         </div>
 
         <form class="ai-input" id="aiForm" autocomplete="off">
-          <input id="aiText" type="text" placeholder="Ask Maki about this lesson…" aria-label="Ask Maki">
+          <input id="aiText" type="text" placeholder="Ask your assistant…" aria-label="Message your assistant">
           <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send"></span></button>
         </form>
       </section>
@@ -156,7 +159,7 @@
       <div class="details__head">
         <div class="details__titles">
           <span class="eyebrow" id="lessonEyebrow">Chapter 0 · Session 1</span>
-          <h2 class="details__title" id="lessonTitle">What is this course and who is it for?</h2>
+          <h2 class="details__title" id="lessonTitle">What is Python and who is this course for?</h2>
         </div>
         <button class="pill pill--brand" id="addNoteBtn" type="button"><span data-icon="pencil"></span>Add note</button>
       </div>
@@ -201,8 +204,8 @@
         <div class="filters" role="group" aria-label="Filter content">
           <button type="button" class="filter is-active" data-filter="all">All</button>
           <button type="button" class="filter" data-filter="video">Videos</button>
-          <button type="button" class="filter" data-filter="exercise">AI exercises</button>
-          <button type="button" class="filter" data-filter="exam">Exams</button>
+          <button type="button" class="filter" data-filter="quiz">Quizzes</button>
+          <button type="button" class="filter" data-filter="exercise">Interactive</button>
         </div>
       </div>
       <div class="sidebar__scroll">

@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Nano Banana | AI Image Generation & Editing – Maktabkhooneh</title>
+  <title>Python Fundamentals – Maktabkhooneh</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="css/course.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="stylesheet" href="css/exercise.css">
 </head>
 <body data-page="exercise">
@@ -22,7 +23,7 @@
           <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
         </svg>
       </a>
-      <h1 class="topbar__title" id="courseTitle">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
+      <h1 class="topbar__title" id="courseTitle">Python Fundamentals</h1>
     </div>
 
     <div class="topbar__end">
@@ -56,12 +57,13 @@
       <button class="pill pill--solid" id="infoBtn" type="button">
         <span data-icon="info"></span><span class="hide-xs">Course info</span>
       </button>
-      <button class="icon-btn icon-btn--soft" type="button" aria-label="Account"><span data-icon="user"></span></button>
+      <button class="icon-btn icon-btn--soft avatar-btn" id="accountBtn" type="button" aria-label="Your profile"><span class="avatar" data-avatar></span></button>
 
       <div class="menu-wrap">
         <button class="icon-btn" id="menuBtn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><span data-icon="dots"></span></button>
         <div class="popover menu" id="menu" role="menu" hidden>
           <a role="menuitem" href="create.html"><span data-icon="sparkles"></span>Create a course with AI</a>
+          <button role="menuitem" type="button" data-menu="profile"><span data-icon="user"></span>Edit your character</button>
           <button role="menuitem" type="button" data-menu="rate"><span data-icon="star"></span>Rate this course</button>
           <button role="menuitem" type="button" data-menu="complete"><span data-icon="trophy"></span>Demo: complete everything</button>
           <button role="menuitem" type="button" data-menu="reset"><span data-icon="rewind"></span>Demo: reset progress</button>
@@ -76,7 +78,7 @@
     <!-- Exercise workspace: takes the place of the video -->
     <section class="card video-card ws" aria-label="Exercise">
       <div class="ws__head">
-        <span class="ws__kicker" id="wsKicker"><span data-icon="sparkles"></span>AI exercise</span>
+        <span class="ws__kicker" id="wsKicker"><span data-icon="code"></span>Interactive</span>
         <ol class="ws__steps" id="wsSteps" aria-label="Tasks"></ol>
         <span class="ws__timer" title="Time on this exercise"><span data-icon="clock"></span><span id="wsTime">0:00</span></span>
       </div>
@@ -84,18 +86,21 @@
       <div class="video-card__bar">
         <button class="pill pill--ghost" id="wsPrev" type="button"><span data-icon="chevronLeft"></span><span class="hide-xs">Previous task</span></button>
         <div class="streak-goal" id="streakGoal"></div>
+        <button class="pill pill--soft ws__run" id="wsRun" type="button" hidden><span data-icon="play"></span>Run<kbd class="hide-sm">Ctrl ↵</kbd></button>
         <button class="pill pill--primary ws__action" id="wsAction" type="button">Check answer</button>
       </div>
     </section>
 
     <!-- AI assistant -->
     <div class="ai-slot">
-      <section class="card ai-card" aria-label="Maki, your AI study buddy">
+      <section class="card ai-card" aria-label="Your AI assistant">
         <div class="ai-head">
-          <div class="maki maki--lg" id="maki" data-mood="happy" aria-hidden="true"></div>
+          <button class="ai-head__who" id="assistantHead" type="button" aria-label="Edit your assistant’s look">
+            <span class="avatar avatar--lg" id="assistantFace" data-avatar data-mood="happy"></span>
+          </button>
           <div class="ai-head__text">
-            <strong>Maki <span class="ai-badge">AI study buddy</span></strong>
-            <span class="ai-level" id="levelName">Level 3 · Prompt Explorer</span>
+            <strong><span data-assistant-name>Sam’s Assistant</span> <span class="ai-badge">AI</span></strong>
+            <span class="ai-level" id="levelName">Level 3 · Loop Learner</span>
             <span class="ai-progress">
               <span class="bar bar--xp"><span class="bar__fill" id="levelBar"></span></span>
               <span class="muted" id="levelNext">110 XP to level 4</span>
@@ -104,20 +109,20 @@
           <span class="xp-chip" id="xpChip" title="Learning score"><span data-icon="bolt"></span><b id="xpValue">640</b> XP</span>
         </div>
 
-        <div class="tip" id="tip" role="status" hidden></div>
+        <div class="quiz-bar" id="quizBar" hidden></div>
 
         <div class="ai-body">
-          <nav class="ai-rail" id="aiRail" aria-label="Quick help from Maki">
+          <nav class="ai-rail" id="aiRail" aria-label="Quick help from your assistant">
             <button class="orb orb--gold" type="button" data-orb="hint"><span class="orb__c"><span data-icon="bulb"></span><i class="orb__dot"></i></span><span class="orb__l">Hint</span></button>
             <button class="orb orb--brand" type="button" data-orb="simplify"><span class="orb__c"><span data-icon="sparkles"></span><i class="orb__dot"></i></span><span class="orb__l">Simplify</span></button>
-            <button class="orb orb--violet" type="button" data-orb="example"><span class="orb__c"><span data-icon="pencil"></span><i class="orb__dot"></i></span><span class="orb__l">Example</span></button>
-            <button class="orb orb--flame" type="button" data-orb="motivate"><span class="orb__c"><span data-icon="flame"></span><i class="orb__dot"></i></span><span class="orb__l">Motivate</span></button>
+            <button class="orb orb--violet" type="button" data-orb="howto"><span class="orb__c"><span data-icon="list"></span><i class="orb__dot"></i></span><span class="orb__l">How to</span></button>
+            <button class="orb orb--flame" type="button" data-orb="example"><span class="orb__c"><span data-icon="code"></span><i class="orb__dot"></i></span><span class="orb__l">Example</span></button>
           </nav>
           <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
         </div>
 
         <form class="ai-input" id="aiForm" autocomplete="off">
-          <input id="aiText" type="text" placeholder="Ask Maki about this exercise…" aria-label="Ask Maki">
+          <input id="aiText" type="text" placeholder="Ask your assistant…" aria-label="Message your assistant">
           <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send"></span></button>
         </form>
       </section>
@@ -136,7 +141,7 @@
       <div class="details__actions">
         <span class="pill pill--outline is-static"><span data-icon="list"></span><span id="exTaskCount">3 tasks</span></span>
         <span class="pill pill--outline is-static"><span data-icon="clock"></span><span id="exTime">About 5 min</span></span>
-        <span class="pill pill--outline is-static"><span data-icon="bolt"></span>+50 XP</span>
+        <span class="pill pill--outline is-static"><span data-icon="bolt"></span><span id="exXp">+50 XP</span></span>
         <button class="pill pill--outline" id="reportBtn" type="button"><span data-icon="alert"></span>Report a problem</button>
       </div>
 
@@ -163,8 +168,8 @@
         <div class="filters" role="group" aria-label="Filter content">
           <button type="button" class="filter is-active" data-filter="all">All</button>
           <button type="button" class="filter" data-filter="video">Videos</button>
-          <button type="button" class="filter" data-filter="exercise">AI exercises</button>
-          <button type="button" class="filter" data-filter="exam">Exams</button>
+          <button type="button" class="filter" data-filter="quiz">Quizzes</button>
+          <button type="button" class="filter" data-filter="exercise">Interactive</button>
         </div>
       </div>
       <div class="sidebar__scroll">

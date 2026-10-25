@@ -4,7 +4,7 @@
    The "AI" is simulated with keyword matching and a small mock catalog. */
 (function () {
   'use strict';
-  const { icon, $, $$, esc, toast, store, makiSVG, hydrateIcons } = window.MK;
+  const { icon, $, $$, esc, toast, store, avatarSVG, assistantName, openProfile, renderIdentity, hydrateIcons } = window.MK;
 
   /* ------------------------------------------------------------- Catalog */
   const SOURCES = {
@@ -16,7 +16,7 @@
     brand: { title: 'Brand Identity Design', price: 2190000 },
     figma: { title: 'UI Design with Figma', price: 2690000 },
     capcut: { title: 'Short Video Editing with CapCut', price: 1190000 },
-    py: { title: 'Python for Beginners', price: 1990000 },
+    py: { title: 'Python Fundamentals', price: 1990000 },
     pandas: { title: 'Data Analysis with Pandas', price: 2390000 },
     excel: { title: 'Excel for Business', price: 1390000 }
   };
@@ -114,6 +114,32 @@
       { type: 'mcq', q: 'What is the fastest way to sum sales by month?', options: ['A pivot table', 'Copy and paste', 'A chart only', 'Conditional formatting'], answer: 0, why: 'Pivot tables group and total data in a few clicks.' },
       { type: 'order', q: 'Order a monthly report.', items: ['Clean the data', 'Turn it into a table', 'Insert a pivot table', 'Add a chart'] }
     ]
+  };
+
+  /* A second chat-quiz question per topic */
+  const QUIZ_EXTRA = {
+    aiimg: { q: 'Besides what to change, what should a good edit prompt say?', options: ['What must stay the same', 'The file size', 'Your name', 'Nothing else'], answer: 0, why: 'Saying what to keep stops the AI from changing the parts you like.' },
+    prompt: { q: 'The result is 90% right. What next?', options: ['Ask for one small change', 'Start over', 'Add 20 adjectives', 'Switch tools'], answer: 0, why: 'Small, targeted changes keep what already works.' },
+    photo: { q: 'Why fix the exposure before the colors?', options: ['Brightness changes how colors look', 'It is faster', 'Colors don’t matter', 'It saves space'], answer: 0, why: 'Brightness changes how colors look, so fix it first.' },
+    social: { q: 'What is a content pillar?', options: ['A theme you post about regularly', 'A paid ad', 'A follower count', 'A hashtag'], answer: 0, why: 'Pillars are 3 to 5 themes that keep your feed consistent.' },
+    copy: { q: 'How should a caption that sells end?', options: ['With a clear call to action', 'With a long list of hashtags', 'With an apology', 'It doesn’t matter'], answer: 0, why: 'Tell people exactly what to do next.' },
+    brand: { q: 'What does a brand guide do?', options: ['Keeps everyone using the brand the same way', 'Replaces the logo', 'Sets prices', 'Lists followers'], answer: 0, why: 'A guide keeps colors, fonts and logo use consistent.' },
+    ui: { q: 'Why test a design with real people?', options: ['They find problems you can’t see yourself', 'It makes the design prettier', 'Figma requires it', 'To pick colors'], answer: 0, why: 'Fresh eyes spot confusing parts fast.' },
+    video: { q: 'How long should most reels be?', options: ['Short, under 30 seconds', 'At least 10 minutes', 'Exactly one hour', 'Length doesn’t matter'], answer: 0, why: 'Short reels get watched to the end more often.' },
+    python: { q: "What does `print(len('cat'))` show?", options: ['3', 'cat', '1', 'An error'], answer: 0, why: 'len() counts the characters: c, a, t.' },
+    data: { q: 'What is a CSV file?', options: ['A table saved as plain text with commas', 'An image', 'A Python script', 'A chart'], answer: 0, why: 'CSV means comma-separated values: a simple table.' },
+    excel: { q: 'What does VLOOKUP do?', options: ['Finds a value in a table', 'Draws a chart', 'Sorts a column', 'Deletes duplicates'], answer: 0, why: 'It looks up a value and returns the matching data.' }
+  };
+  /* Coding tasks for code-friendly topics, run with real Python on the exercise page */
+  const CODE_TASKS = {
+    python: { type: 'code', title: 'Your first loop', brief: 'Print the numbers 1 to 5, one per line, with a `for` loop.', starter: 'for n in range(1, 3):\n    print(n)\n',
+      tests: [['Prints 1 to 5', "__lines__ == ['1', '2', '3', '4', '5']"]],
+      hints: ['`range(1, 3)` stops just before 3.', 'The second number must be one more than the last number you want.', 'Use `range(1, 6)`.'],
+      howto: ['Look at `range(1, 3)`.', 'Change 3 so the loop reaches 5.', 'Check the output shows 1 to 5.'], solution: 'for n in range(1, 6):\n    print(n)' },
+    data: { type: 'code', title: 'Average sales', brief: 'The list `sales` holds three days of sales. Print the average with `sum()` and `len()`.', starter: 'sales = [120, 90, 150]\n',
+      tests: [['Prints the average, 120.0', "'120.0' in __lines__ or '120' in __lines__"], ['Uses sum()', "'sum(' in __code__"]],
+      hints: ['The average is the total divided by how many there are.', '`sum(sales)` gives the total and `len(sales)` the count.', 'Print `sum(sales) / len(sales)`.'],
+      howto: ['Add a new line under the list.', 'Write `print(sum(sales) / len(sales))`.', 'Check the output says 120.0.'], solution: 'sales = [120, 90, 150]\nprint(sum(sales) / len(sales))' }
   };
 
   const PROJECTS = [
@@ -244,18 +270,25 @@
 
     const chapters = [];
     const exercises = {};
+    const quizzes = {};
     W.topics.forEach((tk) => {
       const t = topicOf(tk);
       const lessons = picked.filter((l) => l.topic === tk).sort((a, b) => a.level - b.level || a.n - b.n);
       if (!lessons.length) return;
       const ref = `cx-${tk}`;
-      exercises[ref] = { title: `${t.label} practice`, skills: t.skills.filter(([sk]) => skills.includes(sk)).map(([, l]) => l), tasks: TOPIC_EXERCISE[tk] };
+      const bank = TOPIC_EXERCISE[tk];
+      const hint = 'Read each answer and ask yourself which one is the most specific and practical.';
+      quizzes[`cq-${tk}`] = { title: `Quiz: ${t.label}`, topic: t.label.toLowerCase(), questions: [...bank.filter((x) => x.type === 'mcq'), QUIZ_EXTRA[tk]].map((x) => ({ type: 'mcq', q: x.q, options: x.options, answer: x.answer, why: x.why, hint })) };
+      const interactive = bank.filter((x) => x.type !== 'mcq').map((x) => ({ ...x, title: x.type === 'order' ? 'Put in order' : 'Write a prompt', brief: x.q }));
+      if (CODE_TASKS[tk]) interactive.unshift(CODE_TASKS[tk]);
+      exercises[ref] = { title: `${t.label} practice`, skills: t.skills.filter(([sk]) => skills.includes(sk)).map(([, l]) => l), tasks: interactive };
       chapters.push({
         id: `m-${tk}`,
         title: t.label,
         items: [
           ...lessons.map((l) => ({ id: `v${l.n}`, type: 'video', title: l.title, dur: l.mins * 60, source: SOURCES[l.src].title, src: l.src, lesson: l.n, done: false })),
-          { id: `x-${tk}`, type: 'exercise', ref, title: `AI exercise: ${t.label}`, mins: 5, done: false }
+          { id: `q-${tk}`, type: 'quiz', ref: `cq-${tk}`, title: `Quiz: ${t.label}`, mins: 3, done: false },
+          { id: `x-${tk}`, type: 'exercise', ref, title: `Practice: ${t.label}`, mins: CODE_TASKS[tk] ? 10 : 5, done: false }
         ]
       });
     });
@@ -270,15 +303,15 @@
             title: fill(p.title),
             skills: p.deliver,
             tasks: [
-              { type: 'order', q: 'Plan your project: put the milestones in order.', items: ['Collect references and ideas', `Make a first draft of “${p.deliver[0]}”`, 'Get feedback from Maki and one real person', 'Polish and share the final version'] },
-              { type: 'checklist', q: `Deliver “${fill(p.title)}”. Tick what you finished.`, items: p.deliver, reflect: 'What did you make? Paste a link or describe it in a few sentences.' }
+              { type: 'order', title: 'Plan it', brief: 'Plan your project: put the milestones in order.', items: ['Collect references and ideas', `Make a first draft of “${p.deliver[0]}”`, 'Get feedback from your assistant and one real person', 'Polish and share the final version'] },
+              { type: 'checklist', title: 'Deliver it', brief: `Deliver “${fill(p.title)}”. Tick what you finished.`, items: p.deliver, reflect: 'What did you make? Paste a link or describe it in a few sentences.' }
             ]
           };
           return { id: `p-${p.key}`, type: 'exercise', ref, title: `Project: ${fill(p.title)}`, mins: p.hours * 60, done: false };
         })
       });
     }
-    return finishPlan({ chapters, exercises });
+    return finishPlan({ chapters, exercises, quizzes });
   }
 
   function finishPlan(plan) {
@@ -295,7 +328,7 @@
     const price = Math.round((lessons.length * 69000 + 490000) / 10000) * 10000;
     return Object.assign(plan, {
       title,
-      about: `A personal course Maki built for you from ${sources.length} Maktabkhooneh courses. Your request: “${W.desc.trim()}”`,
+      about: `A personal course ${assistantName()} built for you from ${sources.length} Maktabkhooneh courses. Your request: “${W.desc.trim()}”`,
       stats: { lessons: lessons.length, minutes: Math.round(minutes), sources, weeks: weeksNeeded, finish: dateIn(weeksNeeded), fullPrice, price }
     });
   }
@@ -310,7 +343,7 @@
         const room = cap - cur.min;
         if (room <= 0) { weeks.push(cur); cur = { items: [], min: 0 }; continue; }
         const take = Math.min(room, left);
-        const label = it.type === 'video' ? it.title : it.title.replace(/^AI exercise: /, 'Practice: ');
+        const label = it.title;
         if (!cur.items.includes(label)) cur.items.push(label);
         cur.min += take; left -= take;
       }
@@ -343,7 +376,7 @@
 
   function stepDescribe() {
     return `<h2 class="w-title">What do you want to learn?</h2>
-      <p class="w-sub">Describe it in your own words: what you want to make, for whom, and why. Maki reads it and suggests topics, skills and projects.</p>
+      <p class="w-sub">Describe it in your own words: what you want to make, for whom, and why. Your assistant reads it and suggests topics, skills and projects.</p>
       <textarea id="descBox" class="desc-box" placeholder="For example: I run a small bakery and want eye-catching Instagram posts made with AI.">${esc(W.desc)}</textarea>
       <div class="examples"><span class="muted">Try one:</span>${EXAMPLES.map((e, k) => `<button class="example" type="button" data-example="${k}">“${esc(e)}”</button>`).join('')}</div>
       <div id="understood">${understoodHTML()}</div>`;
@@ -351,18 +384,18 @@
   function understoodHTML() {
     if (W.desc.trim().length < 12) return '';
     const a = analyze(W.desc);
-    if (!a.topics.length && !a.goal) return `<div class="understood">${makiMini()}<p>Tell me a bit more: what would you like to <b>make</b> or <b>do</b> when you finish?</p></div>`;
-    return `<div class="understood">${makiMini()}<div><p><b>Here’s what I understood:</b></p><div class="chipset">
+    if (!a.topics.length && !a.goal) return `<div class="understood">${assistantMini()}<p>Tell me a bit more: what would you like to <b>make</b> or <b>do</b> when you finish?</p></div>`;
+    return `<div class="understood">${assistantMini()}<div><p><b>Here’s what I understood:</b></p><div class="chipset">
       ${a.topics.map((k) => `<span class="chip-s">${icon(topicOf(k).icon)}${topicOf(k).label}</span>`).join('')}
       ${a.goal ? `<span class="chip-s chip-s--goal">${icon(GOALS.find((g) => g.key === a.goal).icon)}${GOALS.find((g) => g.key === a.goal).label}</span>` : ''}
       ${a.biz ? `<span class="chip-s">${icon('pin')}For your ${esc(a.biz)}</span>` : ''}
     </div></div></div>`;
   }
-  function makiMini() { return `<span class="maki maki--sm">${makiSVG()}</span>`; }
+  function assistantMini() { return `<span class="avatar avatar--sm" data-avatar>${avatarSVG()}</span>`; }
 
   function stepTopics() {
     return `<h2 class="w-title">Pick your topics</h2>
-      <p class="w-sub">Maki marked the topics that match what you wrote. Add or remove any. Each topic becomes a module in your course.</p>
+      <p class="w-sub">Your assistant marked the topics that match what you wrote. Add or remove any. Each topic becomes a module in your course.</p>
       <div class="topic-grid">${TOPICS.map((t) => {
         const on = W.topics.includes(t.key);
         const lessons = LESSONS.filter((l) => l.topic === t.key);
@@ -377,7 +410,7 @@
 
   function stepSkills() {
     return `<h2 class="w-title">Choose your skills</h2>
-      <p class="w-sub">Tell Maki your level so it can skip what you already know, then pick the skills you want to build.</p>
+      <p class="w-sub">Tell your assistant your level so it can skip what you already know, then pick the skills you want to build.</p>
       <div class="skill-cards">${W.topics.map((k) => {
         const t = topicOf(k);
         return `<div class="skill-card">
@@ -396,7 +429,7 @@
   function stepTime() {
     const total = W.hours * W.weeks;
     return `<h2 class="w-title">How much time do you have?</h2>
-      <p class="w-sub">Maki fits the course into your week, so you always know what to do next.</p>
+      <p class="w-sub">Your assistant fits the course into your week, so you always know what to do next.</p>
       <div class="time-grid">
         <label class="time-card" for="hoursRange"><span class="muted">Hours per week</span><span class="big"><span id="hoursVal">${W.hours}</span> <small>h / week</small></span>
           <input type="range" id="hoursRange" min="1" max="10" step="1" value="${W.hours}"></label>
@@ -415,7 +448,7 @@
   function stepGoal() {
     const a = analyze(W.desc);
     return `<h2 class="w-title">What’s your goal?</h2>
-      <p class="w-sub">Your goal shapes the projects Maki suggests and the order of your lessons.</p>
+      <p class="w-sub">Your goal shapes the projects your assistant suggests and the order of your lessons.</p>
       <div class="goal-grid" role="radiogroup" aria-label="Goal">${GOALS.map((g) => `<button class="goal${W.goal === g.key ? ' is-on' : ''}" type="button" role="radio" aria-checked="${W.goal === g.key}" data-goal="${g.key}">
         ${a.goal === g.key ? '<span class="topic__tag">Suggested</span>' : ''}
         <span class="goal__ic">${icon(g.icon)}</span><b>${g.label}</b><span class="muted">${g.line}</span></button>`).join('')}</div>`;
@@ -424,7 +457,7 @@
   function stepProjects() {
     const list = shownProjects();
     return `<h2 class="w-title">Pick a project to finish with</h2>
-      <p class="w-sub">Maki generated these ideas from your topics and goal. Pick one or two. You’ll build it at the end of the course, with feedback from Maki.</p>
+      <p class="w-sub">Your assistant generated these ideas from your topics and goal. Pick one or two. You’ll build it at the end of the course, with feedback as you go.</p>
       <div class="proj-grid">${list.map((p) => {
         const on = W.projects.includes(p.key);
         return `<button class="proj${on ? ' is-on' : ''}" type="button" data-project="${p.key}" aria-pressed="${on}">
@@ -453,7 +486,7 @@
     if (p) {
       const weeks = weeklyPlan(p);
       box.innerHTML = `
-        <div class="plan__head"><div class="maki maki--lg" data-mood="cheer">${makiSVG()}</div><div><strong>Your weekly plan</strong><span class="muted">${W.hours} h a week · ${weeks.length} week${weeks.length > 1 ? 's' : ''} · finish by ${dateIn(weeks.length)}</span></div></div>
+        <div class="plan__head"><div class="avatar avatar--lg" data-avatar data-mood="cheer">${avatarSVG()}</div><div><strong>Your weekly plan</strong><span class="muted">${W.hours} h a week · ${weeks.length} week${weeks.length > 1 ? 's' : ''} · finish by ${dateIn(weeks.length)}</span></div></div>
         <p class="plan__say">Swap or remove any lesson on the left. I’ll keep your plan up to date.</p>
         <ol class="weeks">${weeks.map((w, k) => `<li class="week"><div class="week__head"><b>Week ${k + 1}</b><span class="muted">${fmtH(Math.round(w.min))}</span></div>
           <ul>${w.items.slice(0, 4).map((x) => `<li>${esc(x)}</li>`).join('')}${w.items.length > 4 ? `<li class="muted">+${w.items.length - 4} more</li>` : ''}</ul></li>`).join('')}</ol>`;
@@ -464,7 +497,7 @@
     const goal = GOALS.find((g) => g.key === W.goal);
     const skillCount = [...W.skills].filter((s) => !s.startsWith('x:') && W.topics.includes(topicOfSkill(s))).length;
     box.innerHTML = `
-      <div class="plan__head"><div class="maki maki--lg" data-mood="${W.desc.trim().length ? 'happy' : 'think'}">${makiSVG()}</div><div><strong>Maki is building your course</strong><span class="muted">Updates as you go</span></div></div>
+      <div class="plan__head"><div class="avatar avatar--lg" data-avatar data-mood="${W.desc.trim().length ? 'happy' : 'think'}">${avatarSVG()}</div><div><strong>${esc(assistantName())} is building your course</strong><span class="muted">Updates as you go</span></div></div>
       <p class="plan__say">${STEP_SAY[W.step]}</p>
       <dl class="plan__rows">
         <div><dt>You want</dt><dd>${W.desc.trim() ? `“${esc(W.desc.trim().slice(0, 90))}${W.desc.trim().length > 90 ? '…' : ''}”` : '<span class="muted">Not described yet</span>'}</dd></div>
@@ -521,12 +554,13 @@
   function resultItem(it, c) {
     const isVideo = it.type === 'video';
     const ex = W.plan.exercises[it.ref];
-    const kind = isVideo ? 'Video' : ex && ex.project ? 'Project' : 'AI exercise';
+    const isQuiz = it.type === 'quiz';
+    const kind = isVideo ? 'Video' : isQuiz ? 'Chat quiz' : ex && ex.project ? 'Project' : 'Interactive';
     const mins = isVideo ? it.dur / 60 : it.mins;
     const canSwap = isVideo && alternatives(it).length > 0;
     const canRemove = isVideo && c.items.filter((i) => i.type === 'video').length > 1;
-    return `<div class="r-item r-item--${isVideo ? 'video' : ex && ex.project ? 'project' : 'ex'}">
-      <span class="r-item__ic">${icon(isVideo ? 'play' : ex && ex.project ? 'folder' : 'sparkles')}</span>
+    return `<div class="r-item r-item--${isVideo ? 'video' : isQuiz ? 'quiz' : ex && ex.project ? 'project' : 'ex'}">
+      <span class="r-item__ic">${icon(isVideo ? 'play' : isQuiz ? 'chat' : ex && ex.project ? 'folder' : 'code')}</span>
       <span class="r-item__body"><span class="r-item__title">${esc(it.title)}</span>
         <span class="r-item__meta">${kind} · ${fmtH(Math.round(mins))}${it.source ? ` · <span class="r-item__src">${icon('book')}${esc(it.source)}</span>` : ''}</span></span>
       <span class="r-item__btns">
@@ -572,8 +606,8 @@
       'Adding AI exercises and your project'
     ];
     $('#wizBody').innerHTML = `<div class="building">
-      <div class="maki maki--xl" data-mood="think">${makiSVG()}</div>
-      <h2 class="w-title">Maki is building your course…</h2>
+      <div class="avatar avatar--xl" data-avatar data-mood="think">${avatarSVG()}</div>
+      <h2 class="w-title">${esc(assistantName())} is building your course…</h2>
       <ul class="build-steps">${lines.map((l) => `<li>${icon('check')}<span>${l}</span></li>`).join('')}</ul>
     </div>`;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -588,7 +622,8 @@
       title: p.title,
       about: p.about,
       chapters: p.chapters.map((c) => ({ id: c.id, title: c.title, items: c.items.map((i) => ({ ...i, done: false })) })),
-      exercises: p.exercises
+      exercises: p.exercises,
+      quizzes: p.quizzes
     };
     store.set('mk.custom', spec);
     store.del('mk.progress.custom');
@@ -672,6 +707,9 @@
   }
 
   hydrateIcons();
+  renderIdentity();
+  $('#accountBtn').addEventListener('click', openProfile);
+  $('#modal').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) window.MK.closeModal(); });
   wire();
   renderStep();
 })();

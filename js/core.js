@@ -1,7 +1,8 @@
 /* Shared core for the course player pages (lesson page and exercise page):
-   course data, saved progress, streak, XP, Maki the AI study buddy, the course
-   content sidebar, the on-site unlock card and shared dialogs. Pages add their own
-   behaviour through MK.init(hooks). Everything runs client-side with mock data. */
+   course data, saved progress, streak, XP, the learner's assistant (a 2D
+   character of the learner), chat quizzes, the course content sidebar, the
+   on-site card and shared dialogs. Pages add their own behaviour through
+   MK.init(hooks). Everything runs client-side with mock data. */
 (function () {
   'use strict';
 
@@ -29,7 +30,6 @@
     thumbDown: 'M17 13V4h3v9zM17 13l-4 7a2 2 0 0 1-2-2v-4H5.5a2 2 0 0 1-2-2.3l1.2-6A2 2 0 0 1 6.7 4H17',
     alert: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16h.01',
     pencil: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
-    exam: 'M9 3.5h6v3H9zM9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 14l2 2 4-4',
     lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
     unlock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 6.6-1.6',
     send: 'M5 12l15-7-6 15-2.5-6.5zM11.5 13.5L20 5',
@@ -51,6 +51,9 @@
     bulb: 'M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z',
     list: 'M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01',
     question: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .9-1 1.6v.4M12 16.8h.01',
+    chat: 'M4.5 5.5h15v10.5H10l-5.5 4.5zM10.3 9.2a1.8 1.8 0 1 1 2.6 1.6c-.5.2-.9.6-.9 1.2v.3M12 14.1h.01',
+    code: 'M8.5 8l-4 4 4 4M15.5 8l4 4-4 4M13.5 5l-3 14',
+    terminal: 'M4 5h16v14H4zM7.5 9.5l3 2.5-3 2.5M12.5 15h4',
     image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5h.01',
     book: 'M5 5a2 2 0 0 1 2-2h12v15H7a2 2 0 0 0-2 2zM5 20a2 2 0 0 0 2 2h12v-4',
     briefcase: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16',
@@ -74,6 +77,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtCode = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>');
   const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
   const toman = (n) => n.toLocaleString('en-US');
   const store = {
@@ -82,163 +86,232 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } }
   };
 
+  /* -------------------------------------------- The learner and their character */
+  const DEFAULT_PROFILE = { name: 'Sam', skin: '#f1c7a5', hair: '#3b2a20', style: 'short', shirt: '#10a39a' };
+  const profile = Object.assign({}, DEFAULT_PROFILE, store.get('mk.profile') || {});
+  const cleanName = (s) => String(s).replace(/[^\p{L}\p{N} .-]/gu, '').trim().slice(0, 20) || DEFAULT_PROFILE.name;
+  profile.name = cleanName(profile.name);
+  const assistantName = () => `${profile.name}’s Assistant`;
+  const withName = (s) => String(s).split('{name}').join(profile.name);
+
+  const HAIR = {
+    short: { back: '', front: 'M17.6 27.5C16.4 17 23.3 11 32 11s15.6 6 14.4 16.5c-1.6-4.6-5.2-7.6-9.4-8.6-3.6 3-10.4 5.2-19.4 8.6z' },
+    long: { back: 'M15.5 31c-1.5-13 6.5-20.5 16.5-20.5S50 18 48.5 31v18c-3 2.2-6.5 2.2-9 0V33h-15v16c-2.5 2.2-6 2.2-9 0z', front: 'M18 27c-.6-9.5 6.4-15 14-15s14.6 5.5 14 15c-3-5.5-8-8-14-8s-11 2.5-14 8z' },
+    curly: { back: '', front: 'M17 29a5 5 0 0 1 1.5-8.5 6 6 0 0 1 7-6.5 6.5 6.5 0 0 1 13 0 6 6 0 0 1 7 6.5A5 5 0 0 1 47 29c-2.5-4.5-6-6.5-15-6.5S19.5 24.5 17 29z' },
+    bun: { back: 'M27 9a5 5 0 1 0 10 0 5 5 0 0 0-10 0z', front: 'M17.8 27C17 17.5 23.5 12.5 32 12.5S47 17.5 46.2 27c-2.5-5-7-7.5-14.2-7.5S20.3 22 17.8 27z' }
+  };
+  function avatarSVG(p) {
+    p = p || profile;
+    const h = HAIR[p.style] || HAIR.short;
+    return `<svg class="avatar__svg" viewBox="0 0 64 64" aria-hidden="true">
+      ${h.back ? `<path d="${h.back}" fill="${p.hair}"/>` : ''}
+      <path d="M8 64c1-12.5 11-20 24-20s23 7.5 24 20z" fill="${p.shirt}"/>
+      <path d="M26.5 44.5l5.5 6 5.5-6" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M27.5 38h9v8c-2.5 2-6.5 2-9 0z" fill="${p.skin}"/><path d="M27.5 38h9v3.5c-2.5 1.4-6.5 1.4-9 0z" fill="rgba(0,0,0,.08)"/>
+      <circle cx="18.6" cy="30" r="3" fill="${p.skin}"/><circle cx="45.4" cy="30" r="3" fill="${p.skin}"/>
+      <ellipse cx="32" cy="29" rx="13.6" ry="15" fill="${p.skin}"/>
+      <path d="${h.front}" fill="${p.hair}"/>
+      <path class="a-brows" d="M22.8 23.4q3.2-1.8 6.4 0M34.8 23.4q3.2-1.8 6.4 0" fill="none" stroke="${p.hair}" stroke-width="1.7" stroke-linecap="round"/>
+      <g class="a-open"><g class="a-pupils">
+        <circle cx="26" cy="29" r="2.3" fill="#1f2a2b"/><circle cx="38" cy="29" r="2.3" fill="#1f2a2b"/>
+        <circle cx="26.8" cy="28.2" r=".75" fill="#fff"/><circle cx="38.8" cy="28.2" r=".75" fill="#fff"/>
+      </g></g>
+      <path class="a-arc" d="M23.6 29.6q2.4-2.8 4.8 0M35.6 29.6q2.4-2.8 4.8 0" fill="none" stroke="#1f2a2b" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="a-line" d="M23.6 29.5h4.8M35.6 29.5h4.8" fill="none" stroke="#1f2a2b" stroke-width="1.8" stroke-linecap="round"/>
+      <ellipse cx="22.5" cy="34.2" rx="2.6" ry="1.6" fill="#ff8f7d" opacity=".42"/><ellipse cx="41.5" cy="34.2" rx="2.6" ry="1.6" fill="#ff8f7d" opacity=".42"/>
+      <path class="a-mouth a-mouth--happy" d="M28 36q4 3.6 8 0" fill="none" stroke="#7a3b2e" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="a-mouth a-mouth--cheer" d="M27.5 35.3h9q-.6 5.6-4.5 5.6t-4.5-5.6z" fill="#7a3b2e"/>
+      <path class="a-mouth a-mouth--think" d="M29.4 37.4q2.6-1.4 5.2.3" fill="none" stroke="#7a3b2e" stroke-width="1.8" stroke-linecap="round"/>
+      <circle class="a-mouth a-mouth--sleepy" cx="32" cy="37.2" r="1.3" fill="#7a3b2e"/>
+      <path class="a-zz" d="M51 3h5l-5 5h5M57.5 11h3l-3 3h3" fill="none" stroke="#9aa1aa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
   /* ----------------------------------------------------------------- Data */
   const video = (id, title, sec, done) => ({ id, type: 'video', title, dur: sec, done: !!done });
-  const exercise = (id, ref, title, done) => ({ id, type: 'exercise', ref, title, mins: 5, done: !!done });
-  const exam = (id, ref, title, done) => ({ id, type: 'exam', ref, title, mins: 10, done: !!done });
+  const quiz = (id, ref, title, done) => ({ id, type: 'quiz', ref, title, mins: 3, done: !!done });
+  const coding = (id, ref, title, done, mins) => ({ id, type: 'exercise', ref, title, mins: mins || 8, done: !!done });
 
-  const NANO = [
+  const PYTHON = [
     { id: 'c0', title: 'About this course', items: [
-      video('u1', 'What is this course and who is it for?', 120, 1),
+      video('u1', 'What is Python and who is this course for?', 120, 1),
       video('u2', 'How to use this course', 180, 1)
     ] },
-    { id: 'c1', title: 'Creating an account, buying access & image editing basics', items: [
-      video('u3', 'Creating your Google AI Studio account', 240, 1),
-      video('u4', 'Choosing a plan and buying access', 300, 1),
-      video('u5', 'Uploading your first image', 210, 1),
-      video('u6', 'Basic edits: crop, color and background', 270, 1),
-      exercise('e1', 'ex1', 'AI exercise: Describe your first edit', 1)
+    { id: 'c1', title: 'Setting up & your first program', items: [
+      video('u3', 'Installing Python and VS Code', 240, 1),
+      video('u4', 'Your first program with print()', 300, 1),
+      video('u5', 'Comments and running a script', 210, 1),
+      quiz('q1', 'q1', 'Quiz: Your first program', 1),
+      coding('i1', 'i1', 'Code: Print a welcome card', 1, 6)
     ] },
-    { id: 'c2', title: 'Face editing & combining people', items: [
-      video('u7', 'Swapping faces the right way', 120, 1),
-      video('u8', 'Keeping a face consistent across edits', 150, 1),
-      video('u9', 'Combining two people in one photo', 120, 1),
-      video('u10', 'Matching light and skin tones', 150, 1),
-      video('u11', 'Fixing hands, eyes and small details', 120, 1),
-      exercise('e2', 'ex2', 'AI exercise: Face edit checklist', 1)
+    { id: 'c2', title: 'Variables & data types', items: [
+      video('u6', 'Variables: giving names to values', 300, 1),
+      video('u7', 'Numbers and math operators', 360, 1),
+      video('u8', 'Strings and f-strings', 360, 1),
+      video('u9', 'Getting input from the user', 240, 1),
+      coding('i2', 'i2', 'Code: Build a tip calculator', 1)
     ] },
-    { id: 'c3', title: 'Advertising & creative outputs', items: [
-      video('u12', 'Product shots on any background', 240, 1),
-      video('u13', 'Ad banners from a single photo', 240, 1),
-      video('u14', 'Social posts in your brand colors', 210, 1),
-      video('u15', 'Mockups: packaging, billboards and screens', 240, 1),
-      video('u16', 'Turning sketches into finished artwork', 210, 1),
-      video('u17', 'Building a mini campaign end to end', 240, 1),
-      exercise('e3', 'ex3', 'AI exercise: Write an ad creative brief', 1),
-      exam('q3', 'quiz3', 'Chapter 3 quiz', 1)
+    { id: 'c3', title: 'Making decisions', items: [
+      video('u10', 'True, False and comparisons', 300, 1),
+      video('u11', 'if, elif and else', 360, 1),
+      video('u12', 'Combining conditions with and, or, not', 300, 1),
+      quiz('q2', 'q2', 'Quiz: Decisions', 0)
     ] },
-    { id: 'c4', title: 'Prompting principles, restoration & style transfer', items: [
-      video('u18', 'The anatomy of a prompt', 300, 1),
-      video('u19', 'Subject, style, lighting and composition', 360, 1),
-      video('u20', 'Restoring old and damaged photos', 330, 1),
-      video('u21', 'Colorizing black-and-white images', 300, 0),
-      video('u22', 'From photo to illustration: changing style', 330, 0),
-      video('u23', 'Reference images and style matching', 270, 0),
-      video('u24', 'Common prompt mistakes', 330, 0),
-      exercise('e4', 'ex4', 'AI exercise: Build a prompt from 4 blocks', 0)
+    { id: 'c4', title: 'Loops', items: [
+      video('u13', 'for loops and range()', 360, 1),
+      video('u14', 'while loops', 300, 1),
+      video('u15', 'break and continue', 240, 0),
+      coding('i3', 'i3', 'Code: FizzBuzz', 0, 10)
     ] },
-    { id: 'c5', title: 'The Gemini update & Nano Banana', items: [
-      video('u25', 'What changed in the latest Gemini update', 330, 0),
-      video('u26', 'Nano Banana vs. other image models', 360, 0),
-      video('u27', 'Multi-turn editing in one conversation', 390, 0),
-      video('u28', 'Working with several reference images', 360, 0),
-      video('u29', 'Text inside images: what works now', 330, 0),
-      video('u30', 'Speed, limits and quality settings', 300, 0),
-      video('u31', 'Real projects with the new features', 390, 0),
-      exercise('e5', 'ex5', 'AI exercise: Multi-turn editing', 0)
+    { id: 'c5', title: 'Lists & dictionaries', items: [
+      video('u16', 'Lists: storing many values', 360, 0),
+      video('u17', 'Looping over a list', 300, 0),
+      video('u18', 'Dictionaries: keys and values', 360, 0),
+      video('u19', 'Useful list and dictionary methods', 300, 0),
+      quiz('q3', 'q3', 'Quiz: Lists and dictionaries', 0)
     ] },
-    { id: 'c6', title: 'Building a great prompt', items: [
-      video('u32', 'A prompt template you can reuse', 360, 0),
-      video('u33', 'Iterating from rough to final', 330, 0),
-      video('u34', 'Constraints and “keep this unchanged”', 300, 0),
-      video('u35', 'Prompt library: 20 ready-made prompts', 390, 0),
-      video('u36', 'Wrap-up and next steps', 300, 0),
-      exercise('e6', 'ex6', 'AI exercise: Write your signature prompt', 0)
+    { id: 'c6', title: 'Functions', items: [
+      video('u20', 'Defining your own functions', 360, 0),
+      video('u21', 'Parameters and return values', 360, 0),
+      video('u22', 'Scope: where variables live', 300, 0),
+      video('u23', 'Reading error messages without fear', 300, 0),
+      coding('i4', 'i4', 'Code: Write a grade function', 0, 10)
     ] },
-    { id: 'c7', title: 'Final exam', items: [
-      exam('fx', 'final', 'Final exam', 0)
+    { id: 'c7', title: 'Final project', items: [
+      video('u24', 'Planning your number guessing game', 240, 0),
+      coding('fp', 'fp', 'Final project: Number guessing game', 0, 30)
     ] }
   ];
 
   const LESSON_EXTRA = {
     u1: {
-      about: 'A short tour of the course: what Nano Banana is, what you will be able to make by the end, and who gets the most out of it. If you design, run social media accounts, sell products online or simply want better images without complicated software, this course is for you.',
+      about: 'A quick tour of the course: what Python is, what you will build by the end, and who this course is for. If you have never written code, or you tried before and got stuck, this course starts from zero and moves one small step at a time.',
       points: [
-        'Nano Banana is Google’s image model inside Gemini. You create and edit images by describing what you want in plain language.',
-        'The course moves from account setup to face edits, ad creatives and advanced prompting.',
-        'Every chapter ends with an AI exercise. Pass the final exam to unlock the on-site workshop.'
+        'Python is a programming language that reads almost like English. It runs websites, data analysis, AI and everyday automation.',
+        'You learn variables, decisions, loops, lists and functions, then build a number guessing game.',
+        'Every chapter ends with a chat quiz or a coding exercise where you see your result live.'
       ],
       captions: [
-        'Hi, and welcome to the complete Nano Banana course.',
-        'Nano Banana is Google’s image model inside Gemini, built for creating and editing images with plain language.',
-        'This course is for designers, marketers and content creators, and for anyone who wants better images without Photoshop.',
-        'We start with your account, then move on to face edits, ad creatives and advanced prompting.',
-        'Every chapter ends with an AI exercise, so you practise right after you learn.',
-        'Finish everything and pass the final exam to unlock the on-site workshop at a graduate price.',
-        'Let’s get started.'
+        'Hi, and welcome to Python Fundamentals.',
+        'Python is one of the easiest programming languages to start with, and one of the most useful.',
+        'This course is for complete beginners. You don’t need any math or computer science background.',
+        'We start with print and variables, then move on to decisions, loops, lists and functions.',
+        'After the lessons you practise right away: quick chat quizzes and coding exercises that run in your browser.',
+        'At the end you build your own number guessing game and unlock the on-site bootcamp.',
+        'Let’s write some code.'
       ],
-      oneLine: 'You will learn to create and edit images just by describing them, and it works for anyone, not only designers.',
-      simple: 'Think of Nano Banana as a photo editor you talk to. Instead of menus and brushes, you say what you want, like “remove the car” or “make it sunset”, and it edits the image. This course teaches you how to say it so the result comes out right the first time.',
-      quiz: { q: 'Who is this course designed for?', options: ['Only professional photographers', 'Anyone who wants to create and edit images with AI', 'Only software developers'], answer: 1 }
+      oneLine: 'Python lets you tell a computer what to do in words that read almost like English.',
+      simple: 'A program is a list of instructions, like a recipe. Python is the language you write the recipe in. This course teaches you the words and the grammar, one small step at a time.',
+      howto: ['Install Python and VS Code. Chapter 1 shows you how.', 'Watch each lesson, then type the code yourself.', 'Finish the quiz or coding exercise at the end of each chapter.', 'Ask me whenever something is unclear.'],
+      quiz: { q: 'Who is this course for?', options: ['Only people who already code', 'Complete beginners who want to learn Python', 'Only data scientists'], answer: 1 }
     }
   };
 
-  /* Exercise tasks: mcq (choose), prompt (write a prompt with live AI preview),
-     order (put steps in order) and checklist (project deliverables). */
-  const NANO_EXERCISES = {
-    ex1: { chapter: 1, title: 'Describe your first edit', skills: ['Clear edit instructions', 'Saying what to keep'], tasks: [
-      { type: 'mcq', q: 'Which instruction gives Nano Banana the clearest edit?', options: ['Make it better', 'Remove the red car on the left and fill the street naturally', 'Edit the photo please', 'Change some things in the background'], answer: 1, why: 'Clear edits name the object, where it is, and how to fill the gap.' },
-      { type: 'prompt', scene: 'mug', q: 'Change the background of this coffee mug photo to a cozy kitchen scene.', example: 'Replace the background with a cozy kitchen in soft morning light from a window, wooden counter, plants in the background, keep the mug exactly as it is, photorealistic, centered, shallow depth of field.' },
-      { type: 'order', q: 'Put the steps of a first edit in the right order.', items: ['Upload the photo', 'Describe the change you want', 'Say what must stay the same', 'Check the result and ask for one fix'] }
+  /* Chat quizzes: answered in the assistant panel. Types: mcq (tap or type) and text (type). */
+  const QUIZZES = {
+    q1: { title: 'Quiz: Your first program', topic: 'print() and comments', questions: [
+      { type: 'mcq', q: "What does `print('Hi')` show on the screen?", options: ['Hi', "'Hi'", 'print Hi', 'Nothing'], answer: 0, hint: 'print() shows the text inside the quotes. The quotes only tell Python where the text starts and ends.', why: 'print() shows the text without the quotes.' },
+      { type: 'text', q: 'What does `print(2 + 3)` show? Type the answer.', accept: ['5'], hint: 'Python works out the math inside the brackets first.', why: 'Python adds the numbers first, then prints the result: 5.' },
+      { type: 'mcq', q: 'Which line is a comment?', options: ['# say hello', "print('# hello')", '"say hello"', '// say hello'], answer: 0, hint: 'In Python, comments start with one special symbol.', why: 'Comments start with #. Python skips them when it runs your code.' }
     ] },
-    ex2: { chapter: 2, title: 'Face edit checklist', skills: ['Natural composites', 'Face consistency'], tasks: [
-      { type: 'mcq', q: 'When you combine two people in one photo, what matters most for a natural result?', options: ['The same file format', 'Matching light direction and skin tones', 'A higher resolution only', 'Using photos from the same camera'], answer: 1, why: 'Mismatched light is the first thing the eye notices in a composite.' },
-      { type: 'mcq', q: 'To keep a face consistent across several edits, you should…', options: ['Upload a new photo each time', 'Keep editing in the same conversation and refer to the original', 'Use shorter prompts', 'Crop the face out first'], answer: 1, why: 'Staying in one conversation keeps the original face as the reference.' },
-      { type: 'order', q: 'Order the steps for combining two people in one photo.', items: ['Pick two photos with similar light', 'Upload both photos', 'Describe where each person stands', 'Ask to match skin tones and shadows'] }
+    q2: { title: 'Quiz: Decisions', topic: 'comparisons and if statements', questions: [
+      { type: 'mcq', q: 'What is the result of `5 > 3`?', options: ['True', 'False', '5', 'An error'], answer: 0, hint: 'A comparison is a yes-or-no question. Is 5 bigger than 3?', why: 'Comparisons give True or False. 5 is bigger than 3, so it is True.' },
+      { type: 'text', q: '`x = 7`. What does `print(x % 2 == 1)` show?', accept: ['true'], hint: '% gives the remainder of a division. What is left over when you divide 7 by 2?', why: '7 % 2 is 1, and 1 == 1 is True. This is how you check for odd numbers.' },
+      { type: 'mcq', q: 'Which keyword checks another condition after `if`?', options: ['elif', 'else if', 'elseif', 'then'], answer: 0, hint: 'Python shortens “else if” into one word.', why: 'Python uses elif, short for “else if”.' },
+      { type: 'mcq', q: 'What does `not True` give?', options: ['False', 'True', 'None', 'An error'], answer: 0, hint: 'not flips a value to its opposite.', why: 'not flips True to False and False to True.' }
     ] },
-    ex3: { chapter: 3, title: 'Write an ad creative brief', skills: ['Ad layouts', 'Product shots'], tasks: [
-      { type: 'prompt', scene: 'shoe', q: 'Write a prompt for a social media ad: a running shoe on a bright, minimal background with room for a headline.', example: 'A white running shoe floating at a slight angle, bright minimal studio background in soft mint, clean studio lighting with a soft shadow, shoe in the lower half and empty space at the top for a headline, 4:5 ratio, keep the logo unchanged.' },
-      { type: 'mcq', q: 'Which detail helps most when you generate an ad banner?', options: ['The aspect ratio and space for text', 'The model version', 'The file name', 'Your screen size'], answer: 0, why: 'Banners live in fixed slots, and the headline needs clear space.' },
-      { type: 'order', q: 'Order a mini campaign built from one product photo.', items: ['Hero product shot', 'Wide web banner', 'Vertical story ad', 'Square feed post'] }
-    ] },
-    ex4: { chapter: 4, title: 'Build a prompt from 4 blocks', skills: ['The 4 prompt blocks', 'Photo restoration'], tasks: [
-      { type: 'mcq', q: 'Which of these is a lighting instruction?', options: ['Watercolor style', 'Soft golden-hour light from the left', 'Close-up shot', 'A red bicycle'], answer: 1, why: 'Lighting describes the quality and direction of light. The others are style, composition and subject.' },
-      { type: 'prompt', scene: 'photo', q: 'Restore and colorize this old family photo from the 1960s.', example: 'Restore this 1960s family photo: repair the scratches and tears, colorize it with natural, warm tones, soft daylight, keep every face and expression exactly unchanged, photorealistic, same framing.' },
-      { type: 'order', q: 'Put the photo restoration steps in order.', items: ['Upload the scanned photo', 'Repair scratches and tears', 'Restore contrast and sharpness', 'Colorize with natural tones'] }
-    ] },
-    ex5: { chapter: 5, title: 'Multi-turn editing', skills: ['Step-by-step refinement', 'Targeted fixes'], tasks: [
-      { type: 'mcq', q: 'What is the main advantage of multi-turn editing?', options: ['It is free', 'You refine one image step by step without starting over', 'It only works with text', 'It increases resolution automatically'], answer: 1, why: 'Each turn builds on the last image, so good parts stay as they are.' },
-      { type: 'mcq', q: 'The image has a spelling mistake in its text. What is the best next step?', options: ['Start a new chat', 'Ask it to fix only that word and keep everything else', 'Lower the quality', 'Add more adjectives'], answer: 1, why: 'A targeted fix protects everything that is already right.' },
-      { type: 'order', q: 'Order a multi-turn editing session.', items: ['Generate a first version', 'Point out one thing to fix', 'Keep the parts that work', 'Do a final quality check'] }
-    ] },
-    ex6: { chapter: 6, title: 'Write your signature prompt', skills: ['Reusable prompt template', 'Style control'], tasks: [
-      { type: 'prompt', scene: 'tower', q: 'Use the reusable template to write a poster of Tehran’s Milad Tower at night in a retro travel-poster style.', example: 'Milad Tower in Tehran at night, retro travel-poster style with flat colors and grain, warm city lights and a deep blue sky, tower centered with space at the top for the title “TEHRAN”, keep the tower’s real shape.' },
-      { type: 'mcq', q: 'The result is close, but the colors are off. What do you do?', options: ['Rewrite the whole prompt', 'Keep the image and ask only for the color change', 'Switch to another model', 'Accept it as is'], answer: 1, why: 'Small, targeted changes are faster and keep what already works.' },
-      { type: 'order', q: 'Order the blocks of the reusable prompt template.', items: ['Subject', 'Style', 'Lighting', 'Composition', 'What to keep'] }
+    q3: { title: 'Quiz: Lists and dictionaries', topic: 'lists and dictionaries', questions: [
+      { type: 'mcq', q: "`fruits = ['apple', 'kiwi', 'fig']`. What is `fruits[1]`?", options: ['kiwi', 'apple', 'fig', 'An error'], answer: 0, hint: 'Python starts counting positions at 0, not 1.', why: 'Positions start at 0, so fruits[1] is the second item: kiwi.' },
+      { type: 'text', q: "What does `len(['a', 'b', 'c'])` return? Type the answer.", accept: ['3'], hint: 'len() counts how many items are in the list.', why: 'len() counts the items. There are 3.' },
+      { type: 'mcq', q: "`person = {'name': 'Sam', 'age': 30}`. How do you get the age?", options: ["person['age']", 'person.age', 'person(age)', 'age[person]'], answer: 0, hint: 'Dictionaries use square brackets with the key inside.', why: "You read a value with its key in square brackets: person['age']." },
+      { type: 'mcq', q: 'Which method adds an item to the end of a list?', options: ['append()', 'add()', 'push()', 'insert_end()'], answer: 0, hint: 'The method name means “attach at the end”.', why: 'append() adds one item to the end of a list.' }
     ] }
   };
 
-  const EXAMS = {
-    quiz3: { title: 'Chapter 3 quiz', minutes: 6, pass: 70, questions: [
-      { q: 'For a product shot, what should stay unchanged when you replace the background?', options: ['The product itself', 'The image size', 'The file name', 'Nothing'], answer: 0 },
-      { q: 'Which is the best brief for a story ad?', options: ['Make an ad', 'Vertical 9:16 ad, shoe centered, empty top third for a headline', 'Nice colorful shoe', 'Shoe, ad, cool'], answer: 1 },
-      { q: 'Why build a mini campaign from one photo?', options: ['Consistent look across every format', 'It uses less storage', 'It needs no prompt', 'It is required by Gemini'], answer: 0 },
-      { q: 'A mockup looks fake. What should you check first?', options: ['Perspective and light on the surface', 'The font size', 'The upload speed', 'The color profile name'], answer: 0 }
+  /* Interactive exercises: run on exercise.html. Task types: code (Python, runs live),
+     prompt (image prompt studio), order (drag into order) and checklist (deliverables). */
+  const nameStr = "'Welcome, {name}!'";
+  const PY_EXERCISES = {
+    i1: { title: 'Print a welcome card', skills: ['Showing text with print()', 'Repeating text with *'], tasks: [
+      { type: 'code', title: 'Say welcome', brief: 'Use `print()` to show `Welcome, {name}!` on the first line.', starter: "# Your first line of code\nprint('Hello')\n",
+        tests: [['First line says “Welcome, {name}!”', `__lines__[:1] == [${nameStr}]`]],
+        hints: ['Change the text inside the quotes.', 'Keep the quotes and the brackets: `print(\'...\')`.', 'The exact text is `Welcome, {name}!`, including the comma and the exclamation mark.'],
+        howto: ['Find the line `print(\'Hello\')`.', 'Replace `Hello` with `Welcome, {name}!`.', 'Keep the quotes and brackets around it.', 'Watch the output on the right update.'],
+        solution: `print(${nameStr})` },
+      { type: 'code', title: 'Add a divider', brief: "Add a second line that prints 20 dashes. Repeat the dash with `'-' * 20`.", starter: null,
+        tests: [['First line still says “Welcome, {name}!”', `__lines__[:1] == [${nameStr}]`], ['Second line is 20 dashes', "len(__lines__) > 1 and __lines__[1] == '-' * 20"], ['Uses * to repeat the dash', "'*' in __code__"]],
+        hints: ['Add a new `print()` on line 2.', "Multiplying text repeats it: `'ab' * 3` gives `ababab`.", "Try `print('-' * 20)`."],
+        howto: ['Press Enter at the end of your first line.', "Type `print('-' * 20)`.", 'Check that the second output line is a row of dashes.'],
+        solution: `print(${nameStr})\nprint('-' * 20)` }
     ] },
-    final: { title: 'Final exam', minutes: 10, pass: 70, questions: [
-      { q: 'Which four building blocks make up a strong image prompt?', options: ['Subject, style, lighting, composition', 'Size, format, color, name', 'Camera, lens, ISO, shutter', 'Title, tags, caption, link'], answer: 0 },
-      { q: 'To change only the background of a photo, you should…', options: ['Describe the whole new image from scratch', 'Say what to change and that the subject stays as it is', 'Upload a lower-quality photo', 'Use a negative prompt only'], answer: 1 },
-      { q: 'Two people combined in one photo look fake. The most likely cause is…', options: ['Mismatched light direction', 'The file is a PNG', 'The prompt is in English', 'Too many colors'], answer: 0 },
-      { q: 'What is the best way to restore a damaged old photo?', options: ['Repair scratches and tears while keeping faces unchanged', 'Ask for a new, similar photo', 'Crop out the damaged areas', 'Increase the contrast'], answer: 0 },
-      { q: 'For an ad banner, which detail matters most?', options: ['Aspect ratio and space for the headline', 'The model’s name', 'Lots of adjectives', 'The image file name'], answer: 0 },
-      { q: 'The result is 90% right. What next?', options: ['Start over with a new prompt', 'Ask for one targeted change in the same conversation', 'Switch to a different tool', 'Accept it'], answer: 1 }
+    i2: { title: 'Build a tip calculator', skills: ['Variables', 'Math operators', 'f-strings'], tasks: [
+      { type: 'code', title: 'Work out the tip', brief: 'The bill is `40` and the tip is `15` percent. Create a variable `tip` that holds the tip amount: bill × percent ÷ 100.', starter: 'bill = 40\ntip_percent = 15\n\n# Create tip here\n',
+        tests: [['A variable called tip exists', "'tip' in globals()"], ['tip is 6.0', 'abs(tip - 6) < 1e-9']],
+        hints: ['Multiply with `*` and divide with `/`.', 'Use the variable names, not the numbers: `bill * tip_percent`.', 'Then divide by 100: `tip = bill * tip_percent / 100`.'],
+        howto: ['Go to the empty line under the comment.', 'Type `tip = ` to create the variable.', 'Write the formula with `bill`, `tip_percent`, `*` and `/ 100`.', 'Add `print(tip)` to see the result.'],
+        solution: 'bill = 40\ntip_percent = 15\n\ntip = bill * tip_percent / 100\nprint(tip)' },
+      { type: 'code', title: 'Print the total', brief: 'Add the tip to the bill and print it with an f-string and two decimals, like `Total: 46.00`.', starter: null,
+        tests: [['Prints “Total: 46.00”', "'Total: 46.00' in __lines__"], ['Uses an f-string', "\"f'\" in __code__ or 'f\"' in __code__"]],
+        hints: ['Create `total = bill + tip` first.', "An f-string starts with f before the quote: `f'Total: {total}'`.", 'Add `:.2f` inside the braces for two decimals: `{total:.2f}`.'],
+        howto: ['Create a variable `total`.', 'Write `print(f\'Total: {total:.2f}\')`.', 'Check the output says Total: 46.00.'],
+        solution: "bill = 40\ntip_percent = 15\n\ntip = bill * tip_percent / 100\ntotal = bill + tip\nprint(f'Total: {total:.2f}')" }
+    ] },
+    i3: { title: 'FizzBuzz', skills: ['for loops and range()', 'The % operator', 'if, elif, else'], tasks: [
+      { type: 'code', title: 'Count to 15', brief: 'Use a `for` loop with `range()` to print the numbers 1 to 15, one per line.', starter: 'for n in range(1, 4):\n    print(n)\n',
+        tests: [['Prints 15 lines', 'len(__lines__) == 15'], ['Counts from 1 to 15', '__lines__ == [str(i) for i in range(1, 16)]']],
+        hints: ['`range(1, 4)` stops just before 4.', 'To stop after 15, the second number must be one more than 15.', 'Use `range(1, 16)`.'],
+        howto: ['Look at the numbers in `range(1, 4)`.', 'Change the 4 so the loop reaches 15.', 'Run it and count the lines.'],
+        solution: 'for n in range(1, 16):\n    print(n)' },
+      { type: 'code', title: 'Play FizzBuzz', brief: 'Print `Fizz` for multiples of 3, `Buzz` for multiples of 5, `FizzBuzz` for multiples of both, and the number otherwise.', starter: null,
+        tests: [['3 becomes Fizz', "__lines__[2] == 'Fizz'"], ['5 becomes Buzz', "__lines__[4] == 'Buzz'"], ['15 becomes FizzBuzz', "__lines__[14] == 'FizzBuzz'"], ['Other numbers stay numbers', "__lines__[0] == '1' and __lines__[6] == '7'"]],
+        hints: ['`n % 3 == 0` is True for 3, 6, 9 and so on.', 'Check the “both” case first with `n % 15 == 0`, then 3, then 5.', 'Use `if`, `elif`, `elif`, `else` inside the loop.'],
+        howto: ['Inside the loop, start with `if n % 15 == 0:` and print FizzBuzz.', 'Add `elif n % 3 == 0:` for Fizz.', 'Add `elif n % 5 == 0:` for Buzz.', 'Finish with `else:` and print n.'],
+        solution: "for n in range(1, 16):\n    if n % 15 == 0:\n        print('FizzBuzz')\n    elif n % 3 == 0:\n        print('Fizz')\n    elif n % 5 == 0:\n        print('Buzz')\n    else:\n        print(n)" }
+    ] },
+    i4: { title: 'Write a grade function', skills: ['Defining functions', 'Return values', 'Looping over a dictionary'], tasks: [
+      { type: 'code', title: 'The grade function', brief: 'Finish `grade(score)` so it returns `A` for 90 and above, `B` for 80–89, `C` for 70–79 and `F` below 70.', starter: "def grade(score):\n    # Your code here\n    return 'F'\n\nprint(grade(95))\n",
+        tests: [['grade(95) is A', "grade(95) == 'A'"], ['grade(85) is B', "grade(85) == 'B'"], ['grade(72) is C', "grade(72) == 'C'"], ['grade(40) is F', "grade(40) == 'F'"], ['90 and 80 are on the right side', "grade(90) == 'A' and grade(80) == 'B'"]],
+        hints: ['Use `if score >= 90:` and return A inside it.', 'Then `elif score >= 80:` for B, and so on.', 'Keep `return \'F\'` as the last line for everything below 70.'],
+        howto: ['Replace the comment with `if score >= 90:`.', "Indent `return 'A'` under it.", 'Add `elif` lines for 80 and 70.', 'Leave `return \'F\'` at the end.'],
+        solution: "def grade(score):\n    if score >= 90:\n        return 'A'\n    elif score >= 80:\n        return 'B'\n    elif score >= 70:\n        return 'C'\n    return 'F'\n\nprint(grade(95))" },
+      { type: 'code', title: 'Grade the class', brief: "Add `scores = {'Sara': 92, 'Reza': 78, 'Mina': 85}` and print each name with its grade, like `Sara: A`.", starter: null,
+        tests: [['Prints “Sara: A”', "'Sara: A' in __lines__"], ['Prints “Reza: C”', "'Reza: C' in __lines__"], ['Prints “Mina: B”', "'Mina: B' in __lines__"]],
+        hints: ['Loop over a dictionary with `for name, score in scores.items():`.', 'Call your function inside the loop: `grade(score)`.', "Print with an f-string: `print(f'{name}: {grade(score)}')`."],
+        howto: ['Create the `scores` dictionary below your function.', 'Write `for name, score in scores.items():`.', "Inside the loop, print `f'{name}: {grade(score)}'`."],
+        solution: "def grade(score):\n    if score >= 90:\n        return 'A'\n    elif score >= 80:\n        return 'B'\n    elif score >= 70:\n        return 'C'\n    return 'F'\n\nscores = {'Sara': 92, 'Reza': 78, 'Mina': 85}\nfor name, score in scores.items():\n    print(f'{name}: {grade(score)}')" }
+    ] },
+    fp: { title: 'Number guessing game', project: true, skills: ['input() and int()', 'if, elif, else', 'while loops', 'Counting'], tasks: [
+      { type: 'code', title: 'Ask for a guess', brief: 'Set `secret = 7`. Ask the player for a guess with `input()` and store it as a whole number in `guess` with `int()`.', starter: '# Number guessing game\n', inputs: ['5'],
+        tests: [['secret is 7', 'secret == 7'], ['guess is a whole number', 'isinstance(guess, int)'], ['guess is what the player typed', 'guess == 5']],
+        hints: ['Start with `secret = 7`.', "`input('Your guess: ')` gives you text.", "Wrap it in int(): `guess = int(input('Your guess: '))`."],
+        howto: ['Create `secret = 7`.', "Ask with `input('Your guess: ')`.", 'Turn the answer into a number with `int()` and store it in `guess`.'],
+        solution: "secret = 7\nguess = int(input('Your guess: '))" },
+      { type: 'code', title: 'Give feedback', brief: 'Compare the guess with the secret and print `Too low`, `Too high` or `Correct!`.', starter: null, inputs: ['5'],
+        tests: [['Says “Too low” when the player types 5', "any('Too low' in l for l in __lines__)"], ['Has a branch for “Too high”', "'Too high' in __code__"], ['Has a branch for “Correct!”', "'Correct!' in __code__"]],
+        hints: ['Use `if guess < secret:`.', 'Then `elif guess > secret:`.', "Finish with `else:` and `print('Correct!')`."],
+        howto: ['Below your input line, write `if guess < secret:` and print Too low.', 'Add `elif guess > secret:` and print Too high.', 'Add `else:` and print Correct!'],
+        solution: "secret = 7\nguess = int(input('Your guess: '))\nif guess < secret:\n    print('Too low')\nelif guess > secret:\n    print('Too high')\nelse:\n    print('Correct!')" },
+      { type: 'code', title: 'Keep playing', brief: 'Use a `while` loop so the player keeps guessing until they get it. Count the tries and finish with `You got it in 3 tries!`.', starter: null, inputs: ['5', '9', '7'],
+        tests: [['Keeps asking after a wrong guess', "any('Too low' in l for l in __lines__) and any('Too high' in l for l in __lines__)"], ['Stops when the guess is right', "any('Correct!' in l or 'got it' in l for l in __lines__)"], ['Counts the tries', "any('3 tries' in l for l in __lines__)"]],
+        hints: ['Start with `tries = 0` and `guess = 0` before the loop.', 'Loop with `while guess != secret:` and ask for the guess inside it.', "Add 1 to tries each time, and after the loop print `f'You got it in {tries} tries!'`."],
+        howto: ['Set `tries = 0` and `guess = 0`.', 'Write `while guess != secret:`.', 'Inside the loop: ask, add 1 to tries, print the feedback.', 'After the loop, print how many tries it took.'],
+        solution: "secret = 7\ntries = 0\nguess = 0\nwhile guess != secret:\n    guess = int(input('Your guess: '))\n    tries += 1\n    if guess < secret:\n        print('Too low')\n    elif guess > secret:\n        print('Too high')\nprint(f'You got it in {tries} tries!')" }
     ] }
   };
 
   const LEVELS = [
     { at: 0, name: 'Curious Beginner' },
-    { at: 250, name: 'Image Tinkerer' },
-    { at: 500, name: 'Prompt Explorer' },
-    { at: 750, name: 'Visual Storyteller' },
-    { at: 1000, name: 'AI Art Director' },
-    { at: 1300, name: 'Nano Banana Pro' }
+    { at: 250, name: 'Hello-World Hero' },
+    { at: 500, name: 'Loop Learner' },
+    { at: 750, name: 'Function Builder' },
+    { at: 1000, name: 'Bug Hunter' },
+    { at: 1300, name: 'Pythonista' }
   ];
 
   const ONSITE = {
-    title: 'Nano Banana Studio: On-site Workshop',
-    place: 'Maktabkhooneh campus, Tehran',
-    when: '3 Fridays · 18 hours hands-on',
-    seats: 'Small group · 12 seats',
+    title: 'On-site Python Bootcamp',
+    place: 'Tehran campus',
+    when: '3 Fridays',
     oldPrice: 14800000,
     newPrice: 8880000,
     cohorts: [
@@ -250,12 +323,13 @@
   /* A course made on create.html is stored in the browser and opened with ?course=custom */
   const params = new URLSearchParams(location.search);
   const custom = params.get('course') === 'custom' ? store.get('mk.custom') : null;
-  const COURSE_ID = custom ? 'custom' : 'nano';
-  const COURSE = custom ? custom.chapters : NANO;
-  const EXERCISES = Object.assign({}, NANO_EXERCISES, custom ? custom.exercises : {});
+  const COURSE_ID = custom ? 'custom' : 'python';
+  const COURSE = custom ? custom.chapters : PYTHON;
+  const EXERCISES = Object.assign({}, PY_EXERCISES, custom ? custom.exercises : {});
+  Object.assign(QUIZZES, custom ? custom.quizzes : {});
   const META = custom
     ? { title: custom.title, about: custom.about, onsite: false }
-    : { title: 'Nano Banana | The Complete Course on AI Image Generation & Editing', about: 'Learn to create and edit professional images with Google’s Nano Banana model in Gemini, from your first edit to ad campaigns, photo restoration and your own reusable prompt system.', onsite: true };
+    : { title: 'Python Fundamentals', about: 'Learn to write real Python programs from scratch: variables, decisions, loops, lists and functions, finishing with a game you build yourself. Every chapter ends with a chat quiz or a hands-on coding exercise with live results.', onsite: true };
   const QS = custom ? '&course=custom' : '';
   const lessonURL = (id) => `index.html?lesson=${id}${QS}`;
   const exerciseURL = (ref) => `exercise.html?ex=${ref}${QS}`;
@@ -266,20 +340,21 @@
     if (it.type === 'video') {
       const extra = LESSON_EXTRA[it.id] || {};
       const lower = it.title.charAt(0).toLowerCase() + it.title.slice(1);
-      it.about = extra.about || `In this session you will learn about ${lower}${it.source ? `. It comes from the course “${it.source}”` : ''}, with a step-by-step demo and examples you can reuse in your own projects.`;
+      it.about = extra.about || `In this session you learn ${lower}${it.source ? `. It comes from the course “${it.source}”` : ''}, with a live demo and small examples you can type along with.`;
       it.points = extra.points || [
         `The idea behind “${it.title}” and when to use it`,
-        'A live demo, from the first step to a finished result',
+        'A live demo you can type along with',
         'Common mistakes and how to avoid them'
       ];
       it.captions = extra.captions || [
         `Welcome to “${it.title}”.`,
-        'We start with the core idea, then I’ll show you a live demo.',
-        'Watch how small changes in what you do change the result.',
-        'Pause any time, try it yourself, and ask Maki if you get stuck.'
+        'We start with the idea, then I’ll show you a live demo.',
+        'Type along with me. Small experiments are the fastest way to learn.',
+        'Pause any time, and ask your assistant if something isn’t clear.'
       ];
       it.simple = extra.simple;
       it.oneLine = extra.oneLine;
+      it.howto = extra.howto;
       it.quiz = extra.quiz;
     }
     ALL.push(it);
@@ -289,6 +364,7 @@
   const itemMinutes = (it) => (it.type === 'video' ? Math.round(it.dur / 60) : it.mins);
   const nextItem = (it) => ALL[ALL.indexOf(it) + 1];
   const prevItem = (it) => ALL[ALL.indexOf(it) - 1];
+  const finalProject = () => ALL.find((i) => i.type === 'exercise' && EXERCISES[i.ref] && EXERCISES[i.ref].project);
 
   /* ---------------------------------------------------------- State + save */
   const todayKey = new Date().toDateString();
@@ -297,8 +373,9 @@
     xp: 640,
     streak: { count: 6, best: 14, today: false, watched: 0, source: null },
     notes: [],
-    scores: custom ? {} : { quiz3: 85 },
+    scores: custom ? {} : { q1: 100, i1: 100, i2: 100 },
     attempts: {},
+    projectSteps: {},
     filter: 'all',
     open: new Set()
   };
@@ -310,6 +387,7 @@
     state.scores = savedProgress.scores || {};
     state.notes = savedProgress.notes || [];
     state.attempts = savedProgress.attempts || {};
+    state.projectSteps = savedProgress.projectSteps || {};
   }
   const savedUser = store.get('mk.user');
   if (savedUser) {
@@ -322,20 +400,24 @@
     }
   }
   function save() {
-    store.set(progressKey, { done: ALL.filter((i) => i.done).map((i) => i.id), scores: state.scores, notes: state.notes, attempts: state.attempts });
+    store.set(progressKey, { done: ALL.filter((i) => i.done).map((i) => i.id), scores: state.scores, notes: state.notes, attempts: state.attempts, projectSteps: state.projectSteps });
     store.set('mk.user', { xp: state.xp, streak: state.streak, day: todayKey });
   }
 
   function stats() {
     const videos = ALL.filter((i) => i.type === 'video');
+    const quizzes = ALL.filter((i) => i.type === 'quiz');
     const exs = ALL.filter((i) => i.type === 'exercise');
-    const final = byRef('final');
+    const fp = finalProject();
     const done = ALL.filter((i) => i.done).length;
+    let projectPct = 0;
+    if (fp) projectPct = fp.done ? 100 : Math.round(((state.projectSteps[fp.ref] || 0) / EXERCISES[fp.ref].tasks.length) * 100);
     return {
       done, total: ALL.length, pct: Math.round((done / ALL.length) * 100),
       vDone: videos.filter((i) => i.done).length, vTotal: videos.length,
+      qDone: quizzes.filter((i) => i.done).length, qTotal: quizzes.length,
       eDone: exs.filter((i) => i.done).length, eTotal: exs.length,
-      finalDone: final ? final.done : true, finalScore: state.scores.final
+      projectPct, projectDone: fp ? fp.done : true
     };
   }
   function levelOf(xp) {
@@ -365,7 +447,7 @@
     const chip = $('#xpChip');
     if (chip) { chip.classList.remove('is-pop'); void chip.offsetWidth; chip.classList.add('is-pop'); }
     const lv = levelOf(state.xp);
-    if (lv.n > before) tip({ kind: 'gold', mood: 'cheer', text: `<b>Level ${lv.n}: ${lv.name}!</b> Every lesson, exercise and quiz adds to your score.` });
+    if (lv.n > before) nudge({ mood: 'cheer', text: `<b>Level ${lv.n}: ${lv.name}!</b> Everything you finish adds up. Look how far you’ve come.` });
   }
   function renderXP() {
     if (!$('#xpValue')) return;
@@ -395,7 +477,7 @@
     if (goal) {
       goal.classList.toggle('is-done', s.today);
       if (s.today) goal.innerHTML = `${icon('flame')}<span><b>${s.count}-day streak</b> secured for today</span>`;
-      else if (page.name === 'exercise') goal.innerHTML = `${icon('flame')}<span>Finish this exercise to keep your <b>${s.count}-day streak</b></span>`;
+      else if (page.name === 'exercise') goal.innerHTML = `${icon('flame')}<span>Finish this to keep your <b>${s.count}-day streak</b></span>`;
       else {
         const pct = Math.min(100, (s.watched / 60) * 100);
         goal.innerHTML = `${icon('flame')}<span class="hide-xs">Streak goal:</span><b>${fmt(s.watched)} / 1:00</b><span class="mini-bar"><i style="width:${pct}%"></i></span><span class="hide-xs">or 1 exercise</span>`;
@@ -428,7 +510,7 @@
         <div class="sp-goal__title">${s.today ? 'Today is done. See you tomorrow!' : 'Keep it alive today'}</div>
         <div class="sp-task ${vDone ? 'is-done' : ''}"><span class="tick">${vDone ? icon('check') : ''}</span><span>Watch 1 minute of video</span><span class="muted">${fmt(Math.min(60, s.watched))} / 1:00</span></div>
         <div class="sp-or">or</div>
-        <div class="sp-task ${eDone ? 'is-done' : ''}"><span class="tick">${eDone ? icon('check') : ''}</span><span>Finish 1 AI exercise</span><span class="muted">${eDone ? '1' : '0'} / 1</span></div>
+        <div class="sp-task ${eDone ? 'is-done' : ''}"><span class="tick">${eDone ? icon('check') : ''}</span><span>Finish 1 quiz or exercise</span><span class="muted">${eDone ? '1' : '0'} / 1</span></div>
       </div>
       <p class="sp-foot">A day counts as soon as you do either one. Miss a day and the streak starts again from zero.</p>`;
   }
@@ -445,68 +527,88 @@
     renderStreak();
     const badge = $('#streakBadge');
     if (badge) { badge.classList.remove('is-pop'); void badge.offsetWidth; badge.classList.add('is-pop'); }
-    tip({ kind: 'flame', mood: 'cheer', text: `<b>${s.count}-day streak!</b> ${source === 'video' ? 'One minute watched, so today counts.' : 'That exercise counted for today.'} See you tomorrow for day ${s.count + 1}.` });
+    nudge({ mood: 'cheer', text: `<b>${s.count}-day streak, ${esc(profile.name)}!</b> ${source === 'video' ? 'One minute watched, so today counts.' : 'That practice counted for today.'} You’ve shown up ${s.count} days in a row.` });
     addXP(15);
     return true;
   }
 
-  /* ------------------------------------------------------------- Maki */
-  function makiSVG() {
-    return `<svg class="maki__svg" viewBox="0 0 64 64" aria-hidden="true">
-      <path class="m-ear" d="M14 23L10.5 6.5 25.5 15z"/><path class="m-ear" d="M50 23l3.5-16.5L38.5 15z"/>
-      <ellipse class="m-body" cx="32" cy="37" rx="24" ry="23"/>
-      <path class="m-belly" d="M22 53.5c3 3.7 6.4 5.5 10 5.5s7-1.8 10-5.5c-3 1.4-6.4 2.1-10 2.1s-7-.7-10-2.1z"/>
-      <circle class="m-disc" cx="23.5" cy="33.5" r="10.5"/><circle class="m-disc" cx="40.5" cy="33.5" r="10.5"/>
-      <g class="m-open"><g class="m-pupils">
-        <circle class="m-pupil" cx="24" cy="34.5" r="4.8"/><circle class="m-pupil" cx="40" cy="34.5" r="4.8"/>
-        <circle class="m-shine" cx="25.7" cy="32.7" r="1.6"/><circle class="m-shine" cx="41.7" cy="32.7" r="1.6"/>
-      </g></g>
-      <g class="m-arc"><path d="M18.5 36q5-6.5 10 0"/><path d="M35.5 36q5-6.5 10 0"/></g>
-      <g class="m-line"><path d="M19 35h9"/><path d="M36 35h9"/></g>
-      <path class="m-beak" d="M28.8 41.2Q32 39.6 35.2 41.2L32 46.8z"/>
-      <ellipse class="m-cheek" cx="14.8" cy="43" rx="3.4" ry="2.1"/><ellipse class="m-cheek" cx="49.2" cy="43" rx="3.4" ry="2.1"/>
-      <path class="m-zz" d="M52 2h5l-5 5h5M58.5 10h3l-3 3h3"/>
-    </svg>`;
-  }
+  /* ----------------------------------------------------- Assistant identity */
   let moodTimer = null;
   function setMood(mood, ms) {
-    const el = $('#maki');
+    const el = $('#assistantFace');
     if (!el) return;
     el.dataset.mood = mood;
     clearTimeout(moodTimer);
     if (ms) moodTimer = setTimeout(() => { el.dataset.mood = 'happy'; }, ms);
   }
-
-  /* Behaviour nudges: one tip bubble at a time instead of messages piling up in the chat */
-  let tipTimer = null;
-  function tip({ kind = 'brand', mood = 'happy', moodMs = 3500, text, action, orb }) {
-    const el = $('#tip');
-    if (!el) return;
-    el.className = `tip tip--${kind}`;
-    el.innerHTML = `<p>${text}</p>${action ? `<button class="tip__btn" type="button" data-act="${action[1]}"${action[2] != null ? ` data-arg="${action[2]}"` : ''}>${action[0]}</button>` : ''}<button class="tip__x" type="button" data-act="tip-close" aria-label="Dismiss">${icon('close')}</button>`;
-    el.hidden = false;
-    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
-    setMood(mood, mood === 'sleepy' ? 0 : moodMs);
-    if (orb) markOrb(orb, true);
-    clearTimeout(tipTimer);
-    tipTimer = setTimeout(hideTip, 15000);
+  function renderIdentity() {
+    $$('[data-avatar]').forEach((el) => { el.innerHTML = avatarSVG(); });
+    $$('.msg-row .avatar--sm').forEach((el) => { el.innerHTML = avatarSVG(); });
+    $$('[data-assistant-name]').forEach((el) => { el.textContent = assistantName(); });
+    const input = $('#aiText');
+    if (input && !quizRun) input.placeholder = `Ask ${assistantName()}…`;
   }
-  function hideTip() { clearTimeout(tipTimer); const el = $('#tip'); if (el) el.hidden = true; }
-  function markOrb(name, on) { const o = $(`[data-orb="${name}"]`); if (o) o.classList.toggle('has-dot', on); }
+
+  const SWATCHES = {
+    skin: ['#f6d7bf', '#f1c7a5', '#d9a27a', '#a86b45', '#6e4429'],
+    hair: ['#2b211c', '#5a3a22', '#b0683a', '#d9b26a', '#8a8f98'],
+    style: ['short', 'long', 'curly', 'bun'],
+    shirt: ['#10a39a', '#6a5ae0', '#f0a20f', '#e5484d', '#1d1d1f']
+  };
+  function openProfile() {
+    const draft = Object.assign({}, profile);
+    const swatchRow = (key, label) => `<div class="pf-row"><span class="pf-label">${label}</span><div class="pf-swatches" role="radiogroup" aria-label="${label}">${SWATCHES[key].map((v) => key === 'style'
+      ? `<button type="button" role="radio" class="pf-style${draft[key] === v ? ' is-on' : ''}" data-pf="${key}" data-v="${v}" aria-checked="${draft[key] === v}" aria-label="${v} hair"><span class="avatar">${avatarSVG(Object.assign({}, draft, { style: v }))}</span></button>`
+      : `<button type="button" role="radio" class="pf-swatch${draft[key] === v ? ' is-on' : ''}" data-pf="${key}" data-v="${v}" aria-checked="${draft[key] === v}" aria-label="${label} ${v}" style="--c:${v}"></button>`).join('')}</div></div>`;
+    const render = () => {
+      $('#modalBody').innerHTML = `<span class="m-eyebrow muted">${icon('user')}Your profile</span>
+        <h2 class="m-title" id="modalTitle">Your assistant looks like you</h2>
+        <p class="m-sub">Your assistant is a 2D character of you. Change your name and look, and it updates everywhere.</p>
+        <div class="pf">
+          <div class="pf-preview"><span class="avatar avatar--xl" data-mood="cheer">${avatarSVG(draft)}</span><b>${esc(cleanName(draft.name))}’s Assistant</b></div>
+          <div class="pf-fields">
+            <label class="pf-label" for="pfName">Your name</label>
+            <input id="pfName" class="pf-input" type="text" maxlength="20" value="${esc(draft.name)}" autocomplete="given-name">
+            ${swatchRow('skin', 'Skin')}${swatchRow('hair', 'Hair color')}${swatchRow('style', 'Hair style')}${swatchRow('shirt', 'Shirt')}
+          </div>
+        </div>
+        <div class="m-foot"><button class="pill pill--soft" type="button" data-close>Cancel</button><button class="pill pill--primary" type="button" id="pfSave">Save</button></div>`;
+      $('#pfName').addEventListener('input', (e) => { draft.name = e.target.value; $('.pf-preview b').textContent = `${cleanName(draft.name)}’s Assistant`; });
+    };
+    const onClick = (e) => {
+      const b = e.target.closest('[data-pf]');
+      if (b) { draft[b.dataset.pf] = b.dataset.v; render(); return; }
+      if (e.target.closest('#pfSave')) {
+        Object.assign(profile, draft, { name: cleanName(draft.name) });
+        store.set('mk.profile', profile);
+        renderIdentity();
+        if (page.onProfile) page.onProfile();
+        closeModal();
+        toast(`Saved. Say hi to ${esc(assistantName())}!`, 'brand', 'user');
+      }
+    };
+    openModal('');
+    render();
+    modalCleanup = () => $('#modalBody').removeEventListener('click', onClick);
+    $('#modalBody').addEventListener('click', onClick);
+  }
 
   /* ------------------------------------------------------------ Chat */
   const feed = () => $('#aiFeed');
-  function scrollFeed() { const f = feed(); f.scrollTop = f.scrollHeight; }
-  function actionsHTML(actions) {
+  function scrollFeed() { const f = feed(); if (f) f.scrollTop = f.scrollHeight; }
+  function actionsHTML(actions, rec) {
     if (!actions || !actions.length) return '';
-    return `<div class="msg__actions">${actions.map(([label, act, arg]) => `<button type="button" data-act="${act}"${arg != null ? ` data-arg="${arg}"` : ''}>${label}</button>`).join('')}</div>`;
+    return `<div class="msg__actions${rec ? ' msg__actions--rec' : ''}">${actions.map(([label, act, arg]) => `<button type="button" data-act="${act}"${arg != null ? ` data-arg="${arg}"` : ''}>${label}</button>`).join('')}</div>`;
+  }
+  function chatRow(html, cls) {
+    const el = document.createElement('div');
+    el.className = `msg-row${cls ? ` ${cls}` : ''}`;
+    el.innerHTML = `<span class="avatar avatar--sm">${avatarSVG()}</span>${html}`;
+    feed().appendChild(el); scrollFeed();
+    return el;
   }
   function aiSay(html, actions) {
-    const row = document.createElement('div');
-    row.className = 'msg-row';
-    row.innerHTML = `<span class="maki maki--sm">${makiSVG()}</span><div class="msg msg--ai">${html}${actionsHTML(actions)}</div>`;
-    feed().appendChild(row); scrollFeed();
-    return row.querySelector('.msg');
+    return chatRow(`<div class="msg msg--ai">${html}${actionsHTML(actions)}</div>`).querySelector('.msg');
   }
   function userSay(text) {
     const el = document.createElement('div');
@@ -515,47 +617,50 @@
     feed().appendChild(el); scrollFeed();
   }
   function typing(then) {
-    const row = document.createElement('div');
-    row.className = 'msg-row';
-    row.innerHTML = `<span class="maki maki--sm">${makiSVG()}</span><div class="msg msg--ai typing"><i></i><i></i><i></i></div>`;
-    feed().appendChild(row); scrollFeed();
+    const el = chatRow('<div class="msg msg--ai typing"><i></i><i></i><i></i></div>');
     setMood('think');
-    setTimeout(() => { row.remove(); setMood('happy'); then(); }, 650 + Math.random() * 500);
+    setTimeout(() => { el.remove(); setMood('happy'); then(); }, 600 + Math.random() * 450);
   }
   function ask(text) {
     userSay(text);
     typing(() => respond(text));
   }
 
-  const ORB_PROMPTS = { motivate: 'Motivate me', simplify: 'Make this simpler', recap: 'Recap this lesson', quiz: 'Quiz me', hint: 'Give me a hint', example: 'Show me an example' };
+  /* Behaviour-based motivation: a coach message in the chat with its own colour and
+     recommended next steps. Only the newest coach message keeps its suggestions. */
+  const REC = {
+    simplify: ['Simplify this', 'simple'],
+    howto: ['How do I do that?', 'howto'],
+    example: ['Show an example', 'example'],
+    recap: ['Recap so far', 'recap'],
+    quiz: ['Quiz me', 'quiz'],
+    hint: ['Give me a hint', 'hint'],
+    fix: ['How do I fix it?', 'fix'],
+    play: ['Keep watching', 'play']
+  };
+  let lastNudge = '';
+  function nudge({ text, options = [], mood = 'happy', moodMs = 3500, orb }) {
+    if (!feed() || text === lastNudge) return;
+    lastNudge = text;
+    $$('.msg--coach .msg__actions').forEach((a) => a.remove());
+    chatRow(`<div class="msg msg--coach"><span class="msg__label">${icon('sparkles')}Just for you</span><div>${text}</div>${actionsHTML(options.map((o) => (typeof o === 'string' ? REC[o] : o)), true)}</div>`, 'msg-row--coach');
+    setMood(mood, mood === 'sleepy' ? 0 : moodMs);
+    if (orb) markOrb(orb, true);
+  }
+  function markOrb(name, on) { const o = $(`[data-orb="${name}"]`); if (o) o.classList.toggle('has-dot', on); }
 
-  let motiveIdx = 0;
+  const ORB_PROMPTS = { simplify: 'Make this simpler', recap: 'Recap this lesson', quiz: 'Quiz me', hint: 'Give me a hint', example: 'Show me an example', howto: 'How do I do that?' };
+
   function motivate() {
     const st = stats();
     const k = state.streak;
     const leftMin = ALL.filter((i) => !i.done).reduce((m, i) => m + itemMinutes(i), 0);
-    const steps = [st.vDone === st.vTotal, st.eDone === st.eTotal, st.finalDone].filter((x) => !x).length;
     const lines = [
-      st.pct < 100
-        ? (st.pct >= 50
-          ? { h: `${st.pct}% done. The hardest part is behind you.`, p: 'Starting is the hard bit, and you did that a while ago. Keep the momentum going.' }
-          : { h: `${st.pct}% done, and every session counts.`, p: 'The first weeks are where habits form. Short, regular sessions beat long, rare ones.' })
-        : { h: 'Course complete!', p: 'You finished every lesson. That takes real commitment.' },
-      k.today
-        ? { h: `${k.count} days in a row!`, p: 'Today already counts. Showing up every day is what turns practice into skill.' }
-        : { h: `${k.count}-day streak. Keep it going today.`, p: 'One minute of video, or one exercise, and today counts too.' },
-      leftMin
-        ? { h: `About ${Math.max(1, Math.round(leftMin / 60))} hours left`, p: `That is ${Math.ceil(leftMin / 15)} short sessions of 15 minutes. Two a day and you finish in about ${Math.ceil(leftMin / 30)} days.` }
-        : { h: 'Nothing left but practice', p: 'Try a new idea every day to keep your skills sharp.' }
+      st.pct >= 50 ? `You’re <b>${st.pct}%</b> through the course. The hardest part, starting, is behind you.` : `You’re <b>${st.pct}%</b> through. The first weeks are where the habit forms, and you’re building it.`,
+      k.today ? `<b>${k.count} days in a row.</b> Showing up is what turns practice into skill.` : `You’re on a <b>${k.count}-day streak</b>. One minute of video or one exercise keeps it going today.`,
+      leftMin ? `About <b>${Math.max(1, Math.round(leftMin / 60))} hours</b> left. That’s ${Math.ceil(leftMin / 20)} short sessions of 20 minutes.` : 'Everything is done. Try changing your final project to make it your own.'
     ];
-    if (META.onsite) {
-      lines.push(steps
-        ? { h: `${steps} step${steps > 1 ? 's' : ''} to the on-site workshop`, p: `Finish ${steps > 1 ? 'them' : 'it'} and you join the workshop for ${toman(ONSITE.newPrice)} Toman instead of ${toman(ONSITE.oldPrice)}.`, a: ['See the steps', 'onsite'] }
-        : { h: 'The on-site workshop is yours', p: 'You unlocked it. Your graduate price is held for 30 days.', a: ['See the offer', 'onsite'] });
-    }
-    const m = lines[motiveIdx++ % lines.length];
-    setMood('cheer', 2500);
-    return aiSay(`<div class="msg__title msg__title--flame">${icon('flame')}${m.h}</div>${m.p}`, m.a ? [m.a, ['Another one', 'motivate']] : [['Another one', 'motivate']]);
+    return aiSay(`<div class="msg__title msg__title--flame">${icon('flame')}You’ve got this, ${esc(profile.name)}</div>${lines.join('<br>')}`);
   }
 
   function respond(q) {
@@ -564,53 +669,148 @@
     const title = c.title || current().title;
     const st = stats();
     if (/motivat|encourag|tired|bored|give up|lazy/.test(s)) return motivate();
+    if (/fix|error|bug|wrong with my code/.test(s) && c.fix) return aiSay(c.fix(), [REC.example, REC.simplify]);
     if (/hint|stuck|help me/.test(s) && c.hint) {
-      const h = c.hint();
-      return aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}Hint</div>${h}`, [['Another hint', 'hint'], ['Show an example', 'example']]);
+      return aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}Hint</div>${c.hint()}`, [['Another hint', 'hint'], REC.howto, REC.example]);
+    }
+    if (/how (do|can|to)|steps?\b|what do i do/.test(s)) {
+      const steps = c.howto || ['Watch the demo once without typing.', 'Pause and type the code yourself in VS Code.', 'Change one thing and run it again to see what happens.', 'If an error appears, ask me. I’ll explain it in plain words.'];
+      return aiSay(`<div class="msg__title msg__title--brand">${icon('list')}Step by step</div><ol>${steps.map((x) => `<li>${fmtCode(withName(x))}</li>`).join('')}</ol>`, [REC.example, REC.simplify]);
     }
     if (/even simpler|one line|simplest/.test(s)) {
-      return aiSay(`<b>In one line:</b> ${esc(c.oneLine || 'Say what to change, say what to keep, then fix one thing at a time.')}`, [['Give me an example', 'example']]);
+      return aiSay(`<b>In one line:</b> ${fmtCode(c.oneLine || 'Try one small thing, run it, look at the result, then change one more thing.')}`, [REC.example]);
     }
     if (/summar|recap|tl;?dr|so far/.test(s) && c.points) {
-      return aiSay(`Here is the short version of <b>${esc(title)}</b>:<ul>${c.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`, [['Quiz me', 'quiz']]);
+      return aiSay(`Here is the short version of <b>${esc(title)}</b>:<ul>${c.points.map((p) => `<li>${fmtCode(p)}</li>`).join('')}</ul>`, [REC.quiz, REC.howto]);
     }
-    if (/quiz|test me|check me/.test(s)) return quiz(c);
+    if (/quiz|test me|check me/.test(s)) return quickQuiz(c);
     if (/simpl|explain|don.?t (get|understand)|confus|eli5/.test(s)) {
-      return aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}In simple words</div>${esc(c.simple || `“${title}” is about telling the AI exactly what to change and what to keep. Name the thing, describe the change, and say what must stay the same. Then look at the result and ask for one small fix at a time.`)}`, [['Even simpler', 'simpler'], ['Give me an example', 'example']]);
+      return aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}In simple words</div>${fmtCode(c.simple || `“${title}” is one small building block. Watch how it’s used, type it yourself, then change one thing at a time and see what happens.`)}`, [['Even simpler', 'simpler'], REC.example, REC.howto]);
     }
-    if (/example/.test(s)) {
-      return aiSay(c.example || 'Here is an example you can paste into Gemini:<br><i>“Replace the background with a cozy kitchen at morning light, keep the mug exactly as it is, soft shadows, shallow depth of field.”</i>');
-    }
+    if (/example/.test(s)) return aiSay(c.example || 'Here’s a tiny example you can try:<pre><code>name = input(\'Your name: \')\nprint(f\'Hello, {name}!\')</code></pre>', [REC.howto]);
     if (/streak/.test(s)) {
       const k = state.streak;
       return aiSay(k.today
         ? `You are on a <b>${k.count}-day streak</b> and today is already counted. Your best is ${k.best} days.`
-        : `You are on a <b>${k.count}-day streak</b>. To keep it today, watch at least <b>1 minute</b> of any video (you have ${fmt(k.watched)} so far) or finish <b>1 AI exercise</b>.`);
+        : `You are on a <b>${k.count}-day streak</b>. To keep it today, watch at least <b>1 minute</b> of video (you have ${fmt(k.watched)} so far) or finish <b>1 quiz or exercise</b>.`);
     }
-    if (META.onsite && /on.?site|workshop|unlock|discount|offer|in.?person|campus/.test(s)) {
-      return aiSay(`The <b>on-site workshop</b> unlocks when you:<ul><li>Watch all lessons (${st.vDone}/${st.vTotal})</li><li>Complete all AI exercises (${st.eDone}/${st.eTotal})</li><li>Pass the final exam with 70% or more (${st.finalDone ? 'passed' : 'not passed yet'})</li></ul>Graduates get it for <b>${toman(ONSITE.newPrice)} Toman</b> instead of ${toman(ONSITE.oldPrice)}.`, [['Show me the offer', 'onsite']]);
-    }
-    if (byRef('final') && /exam|final|test/.test(s)) {
-      return aiSay('The final exam has 6 questions and takes about 10 minutes. You need 70% to pass, and you can retake it.', [['Start final exam', 'exam', 'final']]);
+    if (META.onsite && /on.?site|bootcamp|workshop|unlock|discount|offer|in.?person|campus/.test(s)) {
+      return aiSay(`The <b>on-site bootcamp</b> unlocks when you pass all quizzes (${st.qDone}/${st.qTotal}), watch every video (${st.vDone}/${st.vTotal}) and finish the final project (${st.projectPct}%). Graduates pay <b>${toman(ONSITE.newPrice)} Toman</b> instead of ${toman(ONSITE.oldPrice)}.`, [['Show me the offer', 'onsite']]);
     }
     if (/xp|score|level|point/.test(s)) {
       const lv = levelOf(state.xp);
-      return aiSay(`You have <b>${state.xp} XP</b> (Level ${lv.n}, ${lv.name}). You earn XP for watching (+5 every 30 s), finishing lessons (+20), AI exercises (+50) and passing exams (+100).`);
+      return aiSay(`You have <b>${state.xp} XP</b> (Level ${lv.n}, ${lv.name}). You earn XP for watching (+5 every 30 s), finishing lessons (+20), quizzes (+40) and coding exercises (+50).`);
     }
-    if (/nano ?banana|gemini|model/.test(s)) {
-      return aiSay('Nano Banana is the nickname of Google’s image model in Gemini. You can generate new images or edit your own photos just by describing the change, and it is especially good at keeping faces and products consistent between edits.');
-    }
-    if (/prompt/.test(s)) {
-      return aiSay('A strong image prompt has four building blocks:<ul><li><b>Subject</b>: what is in the image</li><li><b>Style</b>: photo, illustration, retro poster…</li><li><b>Lighting</b>: golden hour, studio light, neon…</li><li><b>Composition</b>: close-up, wide shot, space for text…</li></ul>Then add <b>what to keep</b> unchanged.');
-    }
-    if (/^(hi|hello|hey|salam)\b/.test(s)) return aiSay('Hi! I’m Maki. Ask me anything, or tap a circle on the left.');
-    return aiSay(`Good question. For “${esc(title)}”: start by saying exactly what you want, then what must stay the same, and refine one small step at a time.`, c.hint ? [['Give me a hint', 'hint'], ['Explain simply', 'simple']] : [['Quiz me', 'quiz'], ['Explain simply', 'simple']]);
+    if (/print/.test(s)) return aiSay('<code>print()</code> shows something on the screen. Put text in quotes, or a number or variable without quotes:<pre><code>print(\'Hello\')\nprint(2 + 3)</code></pre>', [REC.example]);
+    if (/variable/.test(s)) return aiSay('A variable is a name for a value, like a labelled box:<pre><code>age = 30\nprint(age)</code></pre>The name goes on the left, the value on the right.', [REC.example]);
+    if (/loop|for |while/.test(s)) return aiSay('A loop repeats code. <code>for</code> repeats a set number of times, <code>while</code> repeats until something changes:<pre><code>for n in range(3):\n    print(n)</code></pre>', [REC.example]);
+    if (/function|def /.test(s)) return aiSay('A function is a reusable recipe. You define it once with <code>def</code> and call it as often as you like:<pre><code>def greet(name):\n    return f\'Hi, {name}!\'\n\nprint(greet(\'Sara\'))</code></pre>', [REC.example]);
+    if (/install|vs ?code|setup|set up/.test(s)) return aiSay('Install Python from python.org, then install VS Code and its Python extension. Chapter 1, “Installing Python and VS Code”, walks you through it.', [['Open that lesson', 'lesson', 'u3']]);
+    if (/^(hi|hello|hey|salam)\b/.test(s)) return aiSay(`Hi ${esc(profile.name)}! Ask me anything, or tap a circle on the left.`);
+    return aiSay(`Good question. For “${esc(title)}”: try one small piece, run it, look at the result, then change one thing at a time.`, c.hint ? [REC.hint, REC.howto, REC.example] : [REC.simplify, REC.howto, REC.example]);
   }
 
-  function quiz(c) {
-    const qz = (c && c.quiz) || { q: 'What should a strong image prompt always include?', options: ['Only the subject', 'Subject plus style, lighting and composition', 'Only a list of keywords'], answer: 1 };
-    const el = aiSay(`<b>Quick check:</b> ${esc(qz.q)}`, qz.options.map((o, i) => [esc(o), 'answer', i]));
+  function quickQuiz(c) {
+    const qz = (c && c.quiz) || { q: 'What does `print(3 * 2)` show?', options: ['6', '32', '3 * 2'], answer: 0 };
+    const el = aiSay(`<b>Quick check:</b> ${fmtCode(qz.q)}`, qz.options.map((o, i) => [esc(o), 'answer', i]));
     el.dataset.answer = qz.answer;
+  }
+
+  /* ----------------------------------------------- Chat quizzes (conversation) */
+  let quizRun = null;
+  const norm = (s) => String(s).toLowerCase().replace(/[`'".!]/g, '').trim();
+  function startQuiz(ref) {
+    const qz = QUIZZES[ref];
+    if (!qz || !feed()) return;
+    quizRun = { ref, i: 0, correct: 0, asked: null };
+    $('#quizBar').hidden = false;
+    renderQuizBar();
+    $('#aiText').placeholder = 'Type your answer, or ask “why?”';
+    aiSay(`<div class="msg__title msg__title--quiz">${icon('chat')}${esc(qz.title)}</div>Let’s chat through ${qz.questions.length} quick questions about ${esc(qz.topic)}. Tap an answer or type it. You can ask me “why?” or “give me a hint” at any time.`);
+    if (window.matchMedia('(max-width: 899px)').matches) $('.ai-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(askQuestion, 500);
+  }
+  function renderQuizBar() {
+    const qz = QUIZZES[quizRun.ref];
+    $('#quizBar').innerHTML = `<span class="quiz-bar__ic">${icon('chat')}</span><span class="quiz-bar__t"><b>${esc(qz.title)}</b><span>Question ${Math.min(quizRun.i + 1, qz.questions.length)} of ${qz.questions.length}</span></span>
+      <span class="quiz-bar__dots">${qz.questions.map((_, k) => `<i class="${k < quizRun.i ? 'is-done' : k === quizRun.i ? 'is-now' : ''}"></i>`).join('')}</span>
+      <button class="quiz-bar__x" type="button" data-act="quiz-exit" aria-label="Leave quiz">${icon('close')}</button>`;
+  }
+  function askQuestion() {
+    if (!quizRun) return;
+    const q = QUIZZES[quizRun.ref].questions[quizRun.i];
+    renderQuizBar();
+    const el = aiSay(`<span class="q-num">Question ${quizRun.i + 1}</span>${fmtCode(q.q)}`, q.type === 'mcq' ? q.options.map((o, k) => [esc(o), 'qanswer', k]) : null);
+    el.classList.add('msg--question');
+    quizRun.asked = el;
+    if (q.type === 'text') $('#aiText').focus();
+  }
+  function answerQuiz(value, label) {
+    const qz = QUIZZES[quizRun.ref];
+    const q = qz.questions[quizRun.i];
+    const ok = q.type === 'mcq' ? value === q.answer : q.accept.some((a) => norm(value) === norm(a));
+    if (quizRun.asked) {
+      $$('button', quizRun.asked).forEach((b, k) => {
+        b.disabled = true;
+        if (k === q.answer) b.classList.add('is-right');
+        if (k === value && !ok) b.classList.add('is-wrong');
+      });
+    }
+    userSay(label);
+    const run = quizRun;
+    typing(() => {
+      if (quizRun !== run) return;
+      if (ok) { run.correct++; aiSay(`${['Exactly!', 'Yes, that’s right!', 'Correct!', 'Nailed it!'][run.i % 4]} ${fmtCode(q.why)}`); setMood('cheer', 1500); }
+      else aiSay(`Not quite. The answer is <b>${fmtCode(q.type === 'mcq' ? q.options[q.answer] : q.accept[0])}</b>. ${fmtCode(q.why)}`);
+      run.i++;
+      if (run.i < qz.questions.length) setTimeout(askQuestion, 700);
+      else setTimeout(finishQuiz, 600);
+    });
+  }
+  function quizConversation(text) {
+    const q = QUIZZES[quizRun.ref].questions[quizRun.i];
+    const t = text.trim();
+    if (/^(why|how|what|explain|hint|help|i don.?t|idk)/i.test(t) || t.endsWith('?')) {
+      userSay(t);
+      typing(() => aiSay(`<div class="msg__title msg__title--brand">${icon('bulb')}Think about it this way</div>${fmtCode(q.hint)}<br>Now give it a try.`));
+      return;
+    }
+    if (q.type === 'text') { answerQuiz(t, t); return; }
+    const n = norm(t);
+    let k = q.options.findIndex((o) => norm(o) === n);
+    if (k < 0 && /^[a-d]$/.test(n)) k = n.charCodeAt(0) - 97;
+    if (k < 0 && /^[1-4]$/.test(n)) k = Number(n) - 1;
+    if (k >= 0 && k < q.options.length) { answerQuiz(k, t); return; }
+    userSay(t);
+    typing(() => aiSay('Tap one of the answers above, or ask me “why?” if you’re unsure.'));
+  }
+  function finishQuiz() {
+    if (!quizRun) return;
+    const { ref, correct } = quizRun;
+    const qz = QUIZZES[ref];
+    const item = byRef(ref);
+    const total = qz.questions.length;
+    const score = Math.round((correct / total) * 100);
+    const pass = score >= 60;
+    const first = pass && item && !item.done;
+    state.scores[ref] = Math.max(state.scores[ref] || 0, score);
+    if (pass && item) item.done = true;
+    quizRun = null;
+    $('#quizBar').hidden = true;
+    renderIdentity();
+    const xp = first ? 40 : pass ? 10 : 5;
+    addXP(xp);
+    renderProgress();
+    const nx = item && nextItem(item);
+    const el = aiSay(`<div class="quiz-result ${pass ? 'is-pass' : 'is-fail'}"><b>${correct}/${total}</b><span>${pass ? 'Quiz passed' : 'Not passed yet'} · +${xp} XP</span></div>
+      ${pass ? 'Great work. That’s saved to your progress.' : 'You need 60% to pass. Let’s go over it once more, then try again.'}`,
+    pass ? [nx ? [`Next: ${esc(nx.title)}`, 'goto', nx.id] : null, ['Retake quiz', 'quiz-start', ref]].filter(Boolean) : [['Try again', 'quiz-start', ref], REC.simplify]);
+    el.classList.add('msg--result');
+    if (pass && !securedToday('exercise')) setMood('cheer', 3000);
+    if (META.onsite && pass) {
+      const st = stats();
+      if (st.qDone === st.qTotal && st.vDone === st.vTotal && st.projectDone) celebrateUnlock();
+    }
   }
 
   /* ------------------------------------------------------------ Actions */
@@ -619,7 +819,7 @@
     if (page.goTo && page.goTo(it)) return;
     if (it.type === 'video') location.href = lessonURL(it.id);
     else if (it.type === 'exercise') location.href = exerciseURL(it.ref);
-    else openExam(it.ref);
+    else if (it.type === 'quiz') startQuiz(it.ref);
   }
   function flashOnsite() {
     const el = $('#onsite');
@@ -630,24 +830,25 @@
   function runAction(btn) {
     const act = btn.dataset.act;
     const arg = btn.dataset.arg;
-    if (btn.closest('#tip')) hideTip();
+    if (btn.closest('.msg--coach')) btn.closest('.msg__actions')?.remove();
     if (page.onAction && page.onAction(act, arg, btn)) return;
     switch (act) {
       case 'recap': ask('Recap what we covered so far'); break;
       case 'quiz': ask('Quiz me'); break;
       case 'simple': ask('Make this simpler'); break;
       case 'simpler': ask('Even simpler, in one line'); break;
-      case 'motivate': ask('Motivate me'); break;
+      case 'howto': ask('How do I do that?'); break;
       case 'hint': ask('Give me another hint'); break;
       case 'example': ask('Show me an example'); break;
-      case 'tip-close': hideTip(); break;
+      case 'fix': ask('How do I fix this error?'); break;
+      case 'quiz-start': startQuiz(arg); break;
+      case 'quiz-exit': quizRun = null; $('#quizBar').hidden = true; renderIdentity(); aiSay('No problem. You can restart the quiz from the course content whenever you like.'); break;
+      case 'qanswer': if (quizRun) answerQuiz(Number(arg), btn.textContent); break;
       case 'exercise': goTo(byRef(arg)); break;
-      case 'exam': openExam(arg); break;
       case 'lesson': goTo(byId(arg)); break;
       case 'goto': goTo(byId(arg)); break;
       case 'next': goTo(nextItem(current())); break;
       case 'onsite': flashOnsite(); break;
-      case 'dismiss': btn.closest('.msg-row, .msg')?.remove(); break;
       case 'answer': {
         const msg = btn.closest('.msg');
         const right = Number(msg.dataset.answer);
@@ -656,7 +857,7 @@
         if (picked !== right) btn.classList.add('is-wrong');
         typing(() => {
           if (picked === right) { aiSay('Correct! Nice work. +10 XP'); addXP(10); }
-          else aiSay(`Not quite. The answer is “${esc(msg.querySelectorAll('button')[right].textContent)}”. Want a simpler explanation?`, [['Explain simply', 'simple']]);
+          else aiSay(`Not quite. The answer is “${esc(msg.querySelectorAll('button')[right].textContent)}”.`, [REC.simplify, REC.howto]);
         });
         break;
       }
@@ -666,23 +867,24 @@
   /* ---------------------------------------------------------- Sidebar */
   function itemHTML(it) {
     let meta;
+    const sc = state.scores[it.ref];
     if (it.type === 'video') {
       meta = `<span>Video</span><span class="dot"></span><span>${itemMinutes(it)} min</span>`;
-    } else if (it.type === 'exercise') {
-      const ex = EXERCISES[it.ref];
-      const sc = state.scores[it.ref];
-      meta = ex.project
-        ? `<span class="tag tag--project">${icon('folder')}Project</span><span>${ex.tasks.length} tasks</span>`
-        : `<span class="tag tag--ai">${icon('sparkles')}AI exercise</span><span>${ex.tasks.length} tasks · ${it.mins} min</span>`;
-      if (sc != null) meta += `<span class="tag tag--score">Best ${sc}%</span>`;
+    } else if (it.type === 'quiz') {
+      meta = `<span class="tag tag--quiz">${icon('chat')}Chat quiz</span><span>${QUIZZES[it.ref].questions.length} questions</span>`;
     } else {
-      const sc = state.scores[it.ref];
-      meta = `<span class="tag tag--exam">${icon('exam')}Exam</span><span>${EXAMS[it.ref].questions.length} questions</span>${sc != null ? `<span class="tag tag--score">Best ${sc}%</span>` : ''}`;
+      const ex = EXERCISES[it.ref];
+      const isCode = ex.tasks.some((t) => t.type === 'code');
+      meta = ex.project
+        ? `<span class="tag tag--project">${icon('folder')}Project</span><span>${ex.tasks.length} steps</span>`
+        : `<span class="tag tag--code">${icon(isCode ? 'code' : 'sparkles')}Interactive</span><span>${ex.tasks.length} task${ex.tasks.length > 1 ? 's' : ''} · ${it.mins} min</span>`;
     }
+    if (it.type !== 'video' && sc != null) meta += `<span class="tag tag--score">Best ${sc}%</span>`;
     const isActive = it.id === state.activeId;
-    const cls = ['item', it.done && 'is-done', isActive && 'is-active'].filter(Boolean).join(' ');
+    const cls = ['item', `item--${it.type}`, it.done && 'is-done', isActive && 'is-active'].filter(Boolean).join(' ');
+    const status = it.done ? icon('check') : it.type === 'quiz' ? icon('chat') : it.type === 'exercise' ? icon(EXERCISES[it.ref].project ? 'folder' : 'code') : '';
     return `<button class="${cls}" type="button" data-item="${it.id}"${isActive ? ' aria-current="true"' : ''}>
-      <span class="item__status">${it.done ? icon('check') : ''}</span>
+      <span class="item__status">${status}</span>
       <span><span class="item__title">${esc(it.title)}</span><span class="item__meta">${meta}</span>${it.source ? `<span class="item__src">${icon('book')}${esc(it.source)}</span>` : ''}</span>
     </button>`;
   }
@@ -709,48 +911,28 @@
     }).join('');
   }
 
+  /* Compact on-site card: three numbers and one button */
   function renderOnsite() {
     const el = $('#onsite');
     if (!el) return;
     if (!META.onsite) { el.hidden = true; return; }
     const st = stats();
     const reqs = [
-      { label: 'Watch all lessons', done: st.vDone === st.vTotal, count: `${st.vDone}/${st.vTotal}`, pct: (st.vDone / st.vTotal) * 100 },
-      { label: 'Complete all AI exercises', done: st.eDone === st.eTotal, count: `${st.eDone}/${st.eTotal}`, pct: (st.eDone / st.eTotal) * 100 },
-      { label: 'Pass the final exam (70%+)', done: st.finalDone, count: st.finalScore != null ? `${st.finalScore}%` : 'Not taken', pct: st.finalDone ? 100 : 0 }
+      { ic: 'chat', label: 'Quizzes passed', value: `${st.qDone}/${st.qTotal}`, done: st.qDone === st.qTotal },
+      { ic: 'play', label: 'Videos watched', value: `${st.vDone}/${st.vTotal}`, done: st.vDone === st.vTotal },
+      { ic: 'folder', label: 'Final project', value: `${st.projectPct}%`, done: st.projectDone }
     ];
-    const left = reqs.filter((r) => !r.done).length;
-    const unlocked = left === 0;
+    const unlocked = reqs.every((r) => r.done);
     const off = Math.round((1 - ONSITE.newPrice / ONSITE.oldPrice) * 100);
     el.classList.toggle('is-unlocked', unlocked);
     el.innerHTML = `
-      <div class="onsite__banner">
-        <span class="onsite__eyebrow">${icon(unlocked ? 'unlock' : 'lock')}${unlocked ? 'Unlocked for you' : 'Unlocks when you finish'}</span>
-        <h3 class="onsite__title">${ONSITE.title}</h3>
-        <div class="onsite__facts">
-          <span>${icon('pin')}${ONSITE.place}</span>
-          <span>${icon('calendar')}${ONSITE.when}</span>
-          <span>${icon('users')}${ONSITE.seats}</span>
-        </div>
+      <div class="onsite__top">
+        <span class="onsite__lock">${icon(unlocked ? 'unlock' : 'lock')}</span>
+        <span class="onsite__name"><b>${ONSITE.title}</b><span>${ONSITE.place} · ${ONSITE.when}</span></span>
+        <span class="onsite__cost"><b>${toman(ONSITE.newPrice)} T</b><span><s>${toman(ONSITE.oldPrice)}</s> <span class="onsite__off">−${off}%</span></span></span>
       </div>
-      <div class="onsite__body">
-        <div class="price">
-          <span class="price__new">${toman(ONSITE.newPrice)} <small>Toman</small></span>
-          <span class="price__off">−${off}%</span>
-          <span class="price__old">${toman(ONSITE.oldPrice)}</span>
-          <span class="price__note">Graduate offer · valid for 30 days after you finish</span>
-        </div>
-        <ul class="reqs">
-          ${reqs.map((r) => `<li class="req${r.done ? ' is-done' : ''}">
-            <span class="tick">${r.done ? icon('check') : ''}</span><span>${r.label}</span><span class="req__count">${r.count}</span>
-            ${r.done ? '' : `<span class="req__bar"><i style="width:${r.pct}%"></i></span>`}
-          </li>`).join('')}
-        </ul>
-        <button class="pill pill--primary" type="button" id="onsiteBtn"${unlocked ? '' : ' disabled'}>
-          ${icon(unlocked ? 'unlock' : 'lock')}${unlocked ? 'Reserve your seat' : `Locked · ${left} step${left > 1 ? 's' : ''} left`}
-        </button>
-        <p class="onsite__hint">${unlocked ? 'Seats are limited. Your graduate price is held for 30 days.' : 'Only learners who finish this course online can join.'}</p>
-      </div>`;
+      <ul class="onsite__reqs">${reqs.map((r) => `<li class="${r.done ? 'is-done' : ''}" title="${r.label}">${icon(r.done ? 'check' : r.ic)}<b>${r.value}</b><span>${r.label}</span></li>`).join('')}</ul>
+      <button class="pill ${unlocked ? 'pill--primary' : 'pill--soft'}" type="button" id="onsiteBtn"${unlocked ? '' : ' disabled'}>${unlocked ? `${icon('unlock')}Reserve your seat` : `${icon('lock')}Unlocks when all three are complete`}</button>`;
   }
 
   function renderProgress() {
@@ -780,7 +962,7 @@
     $('#modalBody').innerHTML = html;
     $('#modal').hidden = false;
     document.body.style.overflow = 'hidden';
-    setTimeout(() => ($('#modalBody button, #modalBody textarea, #modalBody input') || $('.modal__close')).focus(), 30);
+    setTimeout(() => ($('#modalBody input, #modalBody textarea, #modalBody button') || $('.modal__close')).focus(), 30);
   }
   function closeModal() {
     $('#modal').hidden = true;
@@ -788,95 +970,20 @@
     if (modalCleanup) { modalCleanup(); modalCleanup = null; }
   }
 
-  function openExam(ref) {
-    const ex = EXAMS[ref];
-    const item = byRef(ref);
-    const answers = new Array(ex.questions.length).fill(null);
-    let i = 0;
-    let left = ex.minutes * 60;
-    let timer = null;
-
-    openModal(`<span class="m-eyebrow" style="color:#9a6200">${icon('exam')}${ref === 'final' ? 'Final exam' : 'Chapter quiz'}</span>
-      <h2 class="m-title" id="modalTitle">${esc(ex.title)}</h2>
-      <p class="m-sub">${ex.questions.length} questions · ${ex.minutes} minutes · Pass mark ${ex.pass}%</p>
-      <div class="info-grid">
-        <div><span>Your best score</span><b>${state.scores[ref] != null ? state.scores[ref] + '%' : 'Not taken yet'}</b></div>
-        <div><span>Retakes</span><b>Unlimited</b></div>
-      </div>
-      ${ref === 'final' ? '<p class="m-sub" style="margin-top:14px">Passing the final exam is one of the three steps to unlock the on-site workshop.</p>' : ''}
-      <div class="m-foot"><span class="muted">The timer starts when you begin.</span><button class="pill pill--primary" type="button" id="examStart">Start exam</button></div>`);
-    $('#examStart').addEventListener('click', () => {
-      timer = setInterval(() => {
-        left--;
-        const el = $('#examClock'); if (el) el.textContent = fmt(left);
-        if (left <= 0) finish();
-      }, 1000);
-      modalCleanup = () => clearInterval(timer);
-      renderQ();
-    });
-
-    function renderQ() {
-      const q = ex.questions[i];
-      $('#modalBody').innerHTML = `<span class="m-eyebrow" style="color:#9a6200">${icon('clock')}<span id="examClock">${fmt(left)}</span> left</span>
-        <h2 class="m-title" id="modalTitle">${esc(ex.title)}</h2>
-        <p class="m-sub">Question ${i + 1} of ${ex.questions.length}</p>
-        <div class="m-steps">${ex.questions.map((_, k) => `<i class="${answers[k] != null || k === i ? 'is-on' : ''}"></i>`).join('')}</div>
-        <p class="m-q">${esc(q.q)}</p>
-        <div class="options">${q.options.map((o, k) => `<button class="option${answers[i] === k ? ' is-picked' : ''}" type="button" data-opt="${k}"><span class="option__key">${'ABCD'[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>
-        <div class="m-foot"><button class="pill pill--soft" type="button" id="examPrev"${i === 0 ? ' disabled' : ''}>Back</button>
-        <button class="pill pill--primary" type="button" id="examNext">${i + 1 < ex.questions.length ? 'Next question' : 'Submit exam'}</button></div>`;
-      $$('.option', $('#modalBody')).forEach((b) => b.addEventListener('click', () => {
-        answers[i] = Number(b.dataset.opt);
-        $$('.option', $('#modalBody')).forEach((o) => o.classList.toggle('is-picked', o === b));
-      }));
-      $('#examPrev').addEventListener('click', () => { i--; renderQ(); });
-      $('#examNext').addEventListener('click', () => {
-        if (answers[i] == null) { toast('Choose an answer to continue', 'brand', 'info'); return; }
-        if (i + 1 < ex.questions.length) { i++; renderQ(); } else finish();
-      });
-    }
-
-    function finish() {
-      clearInterval(timer);
-      const right = ex.questions.filter((q, k) => answers[k] === q.answer).length;
-      const score = Math.round((right / ex.questions.length) * 100);
-      const pass = score >= ex.pass;
-      const first = pass && !item.done;
-      state.scores[ref] = Math.max(state.scores[ref] || 0, score);
-      if (pass) item.done = true;
-      const xp = first ? 100 : pass ? 20 : 10;
-      $('#modalBody').innerHTML = `<div class="result">
-        <div class="result__ring ${pass ? 'pass' : 'fail'}" style="--p:${score}%"><span>${score}%</span></div>
-        <h3 id="modalTitle">${pass ? 'You passed!' : 'Not passed yet'}</h3>
-        <p>${right} of ${ex.questions.length} correct. ${pass ? (ref === 'final' ? 'The final exam step for the on-site workshop is now complete.' : 'Nice work on this chapter.') : `You need ${ex.pass}% to pass. Maki can help you review the questions you missed.`}</p>
-        <span class="xp-chip">${icon('bolt')}<b>+${xp}</b> XP</span>
-      </div>
-      <div class="m-foot"><button class="pill pill--soft" type="button" id="examRetry">Retake</button><button class="pill pill--primary" type="button" data-close>Back to course</button></div>`;
-      $('#examRetry').addEventListener('click', () => { closeModal(); openExam(ref); });
-      addXP(xp);
-      renderProgress();
-      const st = stats();
-      if (pass && ref === 'final' && st.vDone === st.vTotal && st.eDone === st.eTotal) celebrateUnlock();
-      else tip(pass
-        ? { kind: 'gold', mood: 'cheer', text: `<b>${esc(ex.title)} passed: ${score}%.</b>${ref === 'final' ? ' Finish the remaining lessons and exercises to unlock the on-site workshop.' : ''}`, action: ref === 'final' ? ['What’s left?', 'onsite'] : null }
-        : { mood: 'think', text: `<b>${esc(ex.title)}: ${score}%.</b> A quick recap usually helps a lot on the retake.`, action: ['Recap', 'recap'], orb: 'recap' });
-    }
-  }
-
   function celebrateUnlock() {
     renderProgress();
-    if (META.onsite) tip({ kind: 'gold', mood: 'cheer', moodMs: 5000, text: `<b>You unlocked the on-site workshop!</b> Your graduate price is ${toman(ONSITE.newPrice)} Toman.`, action: ['See offer', 'onsite'] });
-    else tip({ kind: 'gold', mood: 'cheer', moodMs: 5000, text: '<b>You finished your course!</b> Every lesson and project is done.' });
+    if (META.onsite) nudge({ mood: 'cheer', moodMs: 5000, text: `<b>You unlocked the on-site bootcamp, ${esc(profile.name)}!</b> Your graduate price is ${toman(ONSITE.newPrice)} Toman.`, options: [['See the offer', 'onsite']] });
+    else nudge({ mood: 'cheer', moodMs: 5000, text: '<b>You finished your course!</b> Every lesson and project is done.' });
   }
 
   function openOnsite() {
     const off = ONSITE.oldPrice - ONSITE.newPrice;
     openModal(`<span class="m-eyebrow" style="color:var(--brand-ink)">${icon('unlock')}Graduate offer</span>
       <h2 class="m-title" id="modalTitle">${ONSITE.title}</h2>
-      <p class="m-sub">${ONSITE.place} · ${ONSITE.when} · ${ONSITE.seats}</p>
+      <p class="m-sub">${ONSITE.place} · ${ONSITE.when} · 18 hours of hands-on coding in a group of 12</p>
       <div class="cohorts">${ONSITE.cohorts.map((c, k) => `<label class="cohort"><input type="radio" name="cohort" value="${c.id}"${k === 0 ? ' checked' : ''}><span><b>${c.label}</b><span class="muted">10:00 – 16:00 each day</span></span><span class="muted">${c.left} seats left</span></label>`).join('')}</div>
       <div class="summary">
-        <div><span>Workshop price</span><span>${toman(ONSITE.oldPrice)} Toman</span></div>
+        <div><span>Bootcamp price</span><span>${toman(ONSITE.oldPrice)} Toman</span></div>
         <div class="save"><span>Graduate discount</span><span>−${toman(off)} Toman</span></div>
         <div class="total"><span>You pay</span><span>${toman(ONSITE.newPrice)} Toman</span></div>
       </div>
@@ -897,11 +1004,11 @@
       <p class="m-sub">${esc(META.about)}</p>
       <div class="info-grid">
         <div><span>Length</span><b>${Math.floor(totalMin / 60)}h ${totalMin % 60}m · ${st.total} sessions</b></div>
-        <div><span>${custom ? 'Built from' : 'Level'}</span><b>${custom ? `${sources} Maktabkhooneh courses` : 'Beginner to intermediate'}</b></div>
-        <div><span>Practice</span><b>${st.eTotal} AI exercises${byRef('final') ? ' · 2 exams' : ''}</b></div>
-        <div><span>Certificate</span><b>${custom ? 'Yes, after your project' : 'Yes, after the final exam'}</b></div>
+        <div><span>${custom ? 'Built from' : 'Level'}</span><b>${custom ? `${sources} Maktabkhooneh courses` : 'Complete beginner'}</b></div>
+        <div><span>Practice</span><b>${st.qTotal} chat quizzes · ${st.eTotal} interactive</b></div>
+        <div><span>Certificate</span><b>Yes, after the final project</b></div>
         <div><span>Your progress</span><b>${st.pct}% complete</b></div>
-        <div><span>${custom ? 'Made by' : 'Learners'}</span><b>${custom ? 'You, with Maki' : '3,482 enrolled'}</b></div>
+        <div><span>${custom ? 'Made by' : 'Learners'}</span><b>${custom ? `You and ${esc(assistantName())}` : '5,214 enrolled'}</b></div>
       </div>
       <div class="m-foot"><span></span><button class="pill pill--solid" type="button" data-close>Close</button></div>`);
   }
@@ -925,7 +1032,9 @@
   /* ------------------------------------------------------------- Demo */
   function demoComplete() {
     ALL.forEach((i) => { i.done = true; });
-    if (byRef('final')) state.scores.final = 92;
+    const fp = finalProject();
+    if (fp) state.projectSteps[fp.ref] = EXERCISES[fp.ref].tasks.length;
+    ALL.filter((i) => i.type === 'quiz').forEach((i) => { state.scores[i.ref] = Math.max(state.scores[i.ref] || 0, 100); });
     securedToday('video');
     celebrateUnlock();
     if (page.onProgress) page.onProgress();
@@ -951,13 +1060,13 @@
 
   /* --------------------------------------------------------------- Wire */
   function wire() {
-    // Chat
+    // Chat: during a quiz, typed text is an answer or a question about it
     $('#aiForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const v = $('#aiText').value.trim();
       if (!v) return;
       $('#aiText').value = '';
-      ask(v);
+      if (quizRun) quizConversation(v); else ask(v);
     });
     $('#aiRail').addEventListener('click', (e) => {
       const b = e.target.closest('[data-orb]');
@@ -966,6 +1075,7 @@
       ask(ORB_PROMPTS[b.dataset.orb]);
     });
     $('.ai-card').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) runAction(b); });
+    $('#assistantHead').addEventListener('click', openProfile);
 
     // Sidebar
     $('#chapters').addEventListener('click', (e) => {
@@ -995,11 +1105,12 @@
     $('#menu').addEventListener('click', (e) => {
       const b = e.target.closest('[data-menu]'); if (!b) return;
       closePops();
-      ({ rate: openRate, complete: demoComplete, reset: demoReset })[b.dataset.menu]();
+      ({ rate: openRate, complete: demoComplete, reset: demoReset, profile: openProfile })[b.dataset.menu]();
     });
     document.addEventListener('click', (e) => { if (!e.target.closest('.popover')) closePops(); });
     $('#infoBtn').addEventListener('click', openInfo);
     $('#rateBtn').addEventListener('click', openRate);
+    $('#accountBtn').addEventListener('click', openProfile);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closePops(); if (!$('#modal').hidden) closeModal(); }
     });
@@ -1015,7 +1126,7 @@
     const title = $('#courseTitle');
     if (title) title.textContent = META.title;
     document.title = `${META.title.split('|')[0].trim()} – Maktabkhooneh`;
-    $('#maki').innerHTML = makiSVG();
+    renderIdentity();
     wire();
     const cur = current();
     if (cur) { state.activeId = cur.id; state.open.add(COURSE[cur.chapter].id); }
@@ -1027,11 +1138,12 @@
   }
 
   window.MK = {
-    icon, hydrateIcons, $, $$, esc, fmt, toman, store,
-    COURSE, ALL, EXERCISES, META, COURSE_ID, LESSON_EXTRA,
-    byId, byRef, itemMinutes, nextItem, prevItem, lessonURL, exerciseURL,
+    icon, hydrateIcons, $, $$, esc, fmtCode, fmt, toman, store,
+    COURSE, ALL, EXERCISES, QUIZZES, META, COURSE_ID, LESSON_EXTRA,
+    byId, byRef, itemMinutes, nextItem, prevItem, lessonURL, exerciseURL, finalProject,
     state, save, stats, addXP, addWatchTime, securedToday, renderStreak, renderProgress, renderChapters,
-    makiSVG, setMood, tip, hideTip, markOrb, aiSay, userSay, ask, typing,
-    toast, openModal, closeModal, openExam, celebrateUnlock, goTo, init
+    profile, assistantName, withName, avatarSVG, renderIdentity, openProfile,
+    setMood, nudge, markOrb, aiSay, userSay, ask, typing, startQuiz, REC,
+    toast, openModal, closeModal, celebrateUnlock, goTo, init
   };
 })();

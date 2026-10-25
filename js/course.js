@@ -1,15 +1,17 @@
 /* Lesson page: video player, lesson details and notes. Shared parts live in core.js. */
 (function () {
   'use strict';
-  const { icon, $, $$, esc, fmt, ALL, byId, nextItem, prevItem, itemMinutes, state, save,
-    addXP, addWatchTime, renderProgress, renderChapters, setMood, tip, hideTip, aiSay, toast, stats, COURSE_ID } = window.MK;
+  const { icon, $, $$, esc, fmt, ALL, byId, nextItem, prevItem, itemMinutes, state, save, profile,
+    addXP, addWatchTime, renderProgress, renderChapters, setMood, nudge, REC, aiSay, toast, stats, startQuiz, COURSE_ID } = window.MK;
+  const typeLabel = (it) => (it.type === 'video' ? 'Video' : it.type === 'quiz' ? 'Chat quiz' : 'Interactive');
+  const startLabel = (it) => (it.type === 'video' ? 'Next lesson' : it.type === 'quiz' ? 'Start the quiz' : 'Open the exercise');
 
   const pl = { t: 0, playing: false, speed: 1, cc: true, timer: null, last: 0, rewinds: 0, xpAcc: 0, nudged: new Set(), hiddenWhilePlaying: false };
   const SPEEDS = [1, 1.25, 1.5, 2];
   const videos = ALL.filter((i) => i.type === 'video');
   const requested = byId(new URLSearchParams(location.search).get('lesson'));
   let lessonId = requested && requested.type === 'video' ? requested.id
-    : COURSE_ID === 'nano' ? 'u1' : (videos.find((v) => !v.done) || videos[0]).id;
+    : COURSE_ID === 'python' ? 'u1' : (videos.find((v) => !v.done) || videos[0]).id;
   const active = () => byId(lessonId);
   let idleTimer = null;
   let liked = false;
@@ -41,7 +43,7 @@
     $('#player').classList.add('is-playing');
     $('#playBtn').innerHTML = icon('pause'); $('#playBtn').setAttribute('aria-label', 'Pause');
     pl.timer = setInterval(tick, 250);
-    if ($('#maki').dataset.mood === 'sleepy') { setMood('happy'); hideTip(); }
+    if ($('#assistantFace').dataset.mood === 'sleepy') setMood('happy');
     clearTimeout(idleTimer);
     renderPlayer();
   }
@@ -55,7 +57,7 @@
       setTimeout(() => {
         if (pl.playing || pl.nudged.has('pause' + lessonId)) return;
         pl.nudged.add('pause' + lessonId);
-        tip({ text: `Taking a break at ${fmt(pl.t)}? I can recap what we covered so far.`, action: ['Recap', 'recap'], orb: 'recap' });
+        nudge({ text: `Taking a break at ${fmt(pl.t)}? Good time to check it stuck. I can recap the last part or make it simpler.`, options: ['recap', 'simplify', REC.play], orb: 'recap' });
       }, 1200);
     }
   }
@@ -74,14 +76,20 @@
     pause(true);
     const it = active();
     const first = !it.done;
+    const before = stats().pct;
     it.done = true;
     renderProgress();
     if (first) addXP(20);
+    const after = stats().pct;
+    const milestone = [25, 50, 75, 90].find((m) => before < m && after >= m);
     const nx = nextItem(it);
-    tip({
-      kind: 'gold', mood: 'cheer', orb: 'quiz',
-      text: nx ? `<b>${first ? 'Lesson done, +20 XP.' : 'Finished again.'}</b> Up next: ${esc(nx.title)}` : '<b>That was the last lesson.</b>',
-      action: nx ? [nx.type === 'video' ? 'Next lesson' : nx.type === 'exercise' ? 'Start exercise' : 'Start exam', 'next'] : null
+    const chapterLeft = window.MK.COURSE[it.chapter].items.filter((i) => !i.done).length;
+    const cheer = milestone ? `<b>${milestone}% of the course done, ${esc(profile.name)}!</b>` : first ? '<b>Lesson done, +20 XP.</b>' : '<b>Finished again.</b>';
+    const more = chapterLeft ? ` ${chapterLeft} more to finish this chapter.` : ' That wraps up this chapter.';
+    nudge({
+      mood: 'cheer', orb: 'quiz',
+      text: `${cheer}${more}${nx ? ` Up next: ${esc(nx.title)}.` : ''}`,
+      options: [nx ? [startLabel(nx), 'next'] : null, 'quiz', 'recap'].filter(Boolean)
     });
   }
   function seekBack(delta) {
@@ -93,7 +101,7 @@
     pl.rewinds++;
     if (pl.rewinds >= 2 && !pl.nudged.has('rewind' + lessonId)) {
       pl.nudged.add('rewind' + lessonId);
-      tip({ mood: 'think', moodMs: 3000, text: 'You replayed this part a few times. Want me to explain it in simpler words?', action: ['Simplify', 'simple'], orb: 'simplify' });
+      nudge({ mood: 'think', moodMs: 3000, text: 'You replayed this part a few times. Tricky parts are where the real learning happens. Want me to break it down?', options: ['simplify', 'howto', 'example'], orb: 'simplify' });
     }
   }
 
@@ -105,7 +113,7 @@
     state.activeId = id;
     pl.t = 0; pl.rewinds = 0;
     $('#lessonTitle').textContent = it.title;
-    $('#lessonEyebrow').textContent = `${COURSE_ID === 'nano' ? `Chapter ${it.chapter}` : `Module ${it.chapter + 1}`} · Session ${it.index + 1}${it.source ? ` · From “${it.source}”` : ''}`;
+    $('#lessonEyebrow').textContent = `${COURSE_ID === 'python' ? `Chapter ${it.chapter}` : `Module ${it.chapter + 1}`} · Session ${it.index + 1}${it.source ? ` · From “${it.source}”` : ''}`;
     renderPlayer();
     renderAbout();
     renderNotes();
@@ -119,7 +127,7 @@
   function renderAbout() {
     const it = active();
     const nx = nextItem(it);
-    const nxType = nx ? (nx.type === 'video' ? 'Video' : nx.type === 'exercise' ? 'AI exercise' : 'Exam') : '';
+    const nxType = nx ? typeLabel(nx) : '';
     $('#panel-about').innerHTML = `
       <div class="about">
         <div>
@@ -131,7 +139,7 @@
           <span class="up-next__label">Up next · ${nxType}</span>
           <span class="up-next__title">${esc(nx.title)}</span>
           <span class="muted">${itemMinutes(nx)} min</span>
-          <button class="pill pill--solid" type="button" data-goto="${nx.id}">${nx.type === 'video' ? 'Play next' : 'Start'}${icon('chevronRight')}</button>
+          <button class="pill pill--solid" type="button" data-goto="${nx.id}">${nx.type === 'video' ? 'Play next' : nx.type === 'quiz' ? 'Start quiz' : 'Open exercise'}${icon('chevronRight')}</button>
         </div>` : ''}
       </div>`;
   }
@@ -165,7 +173,7 @@
       $('#speedBtn').textContent = `${pl.speed}x`;
       if (pl.speed === 2 && !pl.nudged.has('speed')) {
         pl.nudged.add('speed');
-        tip({ text: 'Nice pace at 2×! I’ll have a quick question ready when you finish.', orb: 'quiz' });
+        nudge({ text: 'Fast pace at 2×! Let’s make sure it sticks. I’ll have a quick question ready when you finish.', options: ['quiz', 'recap'], orb: 'quiz' });
       }
     });
     $('#ccBtn').addEventListener('click', () => { pl.cc = !pl.cc; $('#ccBtn').classList.toggle('is-on', pl.cc); renderPlayer(); });
@@ -194,7 +202,7 @@
       if (document.hidden && pl.playing) { pause(true); pl.hiddenWhilePlaying = true; }
       else if (!document.hidden && pl.hiddenWhilePlaying) {
         pl.hiddenWhilePlaying = false;
-        tip({ text: `Welcome back! I paused the video at ${fmt(pl.t)} for you.`, action: ['Resume', 'play'] });
+        nudge({ text: `Welcome back, ${esc(profile.name)}! I paused the video at ${fmt(pl.t)} for you.`, options: [['Resume', 'play'], 'recap'] });
       }
     });
     $('#prevBtn').addEventListener('click', () => window.MK.goTo(prevItem(active())));
@@ -226,7 +234,7 @@
     current: active,
     ctx: () => {
       const it = active();
-      return { title: it.title, points: it.points, simple: it.simple, oneLine: it.oneLine, quiz: it.quiz };
+      return { title: it.title, points: it.points, simple: it.simple, oneLine: it.oneLine, quiz: it.quiz, howto: it.howto };
     },
     goTo: (it) => {
       if (it.type !== 'video') return false;
@@ -244,13 +252,20 @@
   loadLesson(lessonId);
 
   const st = stats();
-  aiSay(`Hi, I’m <b>Maki</b>, your study buddy. You’re <b>${st.pct}%</b> through the course. Ask me anything, or tap a circle on the left when you need a boost or a simpler explanation.`);
-  const nextExercise = ALL.find((i) => i.type === 'exercise' && !i.done);
-  if (nextExercise) {
-    setTimeout(() => tip({ kind: 'gold', text: `“${esc(nextExercise.title.replace(/^AI exercise: /, ''))}” takes about 5 minutes and keeps your streak alive today.`, action: ['Start', 'exercise', nextExercise.ref] }), 900);
+  aiSay(`Hi ${esc(profile.name)}! I’m your assistant, and I learn alongside you. Ask me anything about this lesson, or tap a circle on the left.`);
+  const quizParam = new URLSearchParams(location.search).get('quiz');
+  if (quizParam && window.MK.QUIZZES[quizParam]) setTimeout(() => startQuiz(quizParam), 400);
+  else {
+    const upNext = ALL.find((i) => i.type !== 'video' && !i.done);
+    setTimeout(() => nudge({
+      text: state.streak.today
+        ? `You’re <b>${st.pct}%</b> through, and today already counts toward your streak. ${upNext ? `Ready for “${esc(upNext.title)}”?` : ''}`
+        : `Welcome back! You’re <b>${st.pct}%</b> through and on a <b>${state.streak.count}-day streak</b>.${upNext ? ` “${esc(upNext.title)}” takes about ${upNext.mins} minutes and keeps your streak alive today.` : ''}`,
+      options: [upNext ? [startLabel(upNext), 'goto', upNext.id] : null, 'howto'].filter(Boolean)
+    }), 900);
   }
   idleTimer = setTimeout(() => {
     if (pl.playing || state.streak.today) return;
-    tip({ kind: 'flame', mood: 'sleepy', text: `<b>Your ${state.streak.count}-day streak is waiting.</b> One minute of video is enough today.`, action: ['Play', 'play'], orb: 'motivate' });
+    nudge({ mood: 'sleepy', text: `Still there, ${esc(profile.name)}? One minute of video is all it takes to keep your <b>${state.streak.count}-day streak</b> alive today.`, options: [['Play the lesson', 'play'], 'simplify'] });
   }, 40000);
 })();
