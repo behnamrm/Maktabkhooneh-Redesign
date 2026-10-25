@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nano Banana | AI Image Generation & Editing – Maktabkhooneh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/course.css">
+  <link rel="stylesheet" href="css/exercise.css">
+</head>
+<body data-page="exercise">
+
+  <!-- ============ Header ============ -->
+  <header class="topbar">
+    <div class="topbar__start">
+      <a class="brand" href="#" aria-label="Maktabkhooneh home">
+        <svg class="brand__logo" viewBox="0 0 48 40" aria-hidden="true">
+          <path d="M4 37V16a10 10 0 0 1 20 0 10 10 0 0 1 20 0v21" />
+          <path d="M11 37V19a5.5 5.5 0 0 1 11 0v12l-11 6" />
+          <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
+        </svg>
+      </a>
+      <h1 class="topbar__title" id="courseTitle">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
+    </div>
+
+    <div class="topbar__end">
+      <div class="streak-wrap">
+        <button class="streak-badge" id="streakBadge" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <span class="streak-badge__flame" data-icon="flame"></span>
+          <span class="streak-badge__count" id="streakCount">6</span>
+          <span class="streak-badge__label">day streak</span>
+        </button>
+        <div class="popover streak-pop" id="streakPop" role="dialog" aria-label="Your learning streak" hidden></div>
+      </div>
+
+      <div class="progress-ring" id="progressRing" title="Course progress">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5b8def" />
+              <stop offset=".55" stop-color="#9b7bf0" />
+              <stop offset="1" stop-color="#10a39a" />
+            </linearGradient>
+          </defs>
+          <circle class="progress-ring__track" cx="22" cy="22" r="18" />
+          <circle class="progress-ring__value" id="progressRingValue" cx="22" cy="22" r="18" />
+        </svg>
+        <span id="progressRingLabel">55%</span>
+      </div>
+
+      <button class="pill pill--soft hide-sm" id="rateBtn" type="button">
+        <span data-icon="star"></span><span>Rate this course</span>
+      </button>
+      <button class="pill pill--solid" id="infoBtn" type="button">
+        <span data-icon="info"></span><span class="hide-xs">Course info</span>
+      </button>
+      <button class="icon-btn icon-btn--soft" type="button" aria-label="Account"><span data-icon="user"></span></button>
+
+      <div class="menu-wrap">
+        <button class="icon-btn" id="menuBtn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><span data-icon="dots"></span></button>
+        <div class="popover menu" id="menu" role="menu" hidden>
+          <a role="menuitem" href="create.html"><span data-icon="sparkles"></span>Create a course with AI</a>
+          <button role="menuitem" type="button" data-menu="rate"><span data-icon="star"></span>Rate this course</button>
+          <button role="menuitem" type="button" data-menu="complete"><span data-icon="trophy"></span>Demo: complete everything</button>
+          <button role="menuitem" type="button" data-menu="reset"><span data-icon="rewind"></span>Demo: reset progress</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ Main layout ============ -->
+  <main class="layout">
+
+    <!-- Exercise workspace: takes the place of the video -->
+    <section class="card video-card ws" aria-label="Exercise">
+      <div class="ws__head">
+        <span class="ws__kicker" id="wsKicker"><span data-icon="sparkles"></span>AI exercise</span>
+        <ol class="ws__steps" id="wsSteps" aria-label="Tasks"></ol>
+        <span class="ws__timer" title="Time on this exercise"><span data-icon="clock"></span><span id="wsTime">0:00</span></span>
+      </div>
+      <div class="ws__stage" id="wsStage" aria-live="polite"></div>
+      <div class="video-card__bar">
+        <button class="pill pill--ghost" id="wsPrev" type="button"><span data-icon="chevronLeft"></span><span class="hide-xs">Previous task</span></button>
+        <div class="streak-goal" id="streakGoal"></div>
+        <button class="pill pill--primary ws__action" id="wsAction" type="button">Check answer</button>
+      </div>
+    </section>
+
+    <!-- AI assistant -->
+    <div class="ai-slot">
+      <section class="card ai-card" aria-label="Maki, your AI study buddy">
+        <div class="ai-head">
+          <div class="maki maki--lg" id="maki" data-mood="happy" aria-hidden="true"></div>
+          <div class="ai-head__text">
+            <strong>Maki <span class="ai-badge">AI study buddy</span></strong>
+            <span class="ai-level" id="levelName">Level 3 · Prompt Explorer</span>
+            <span class="ai-progress">
+              <span class="bar bar--xp"><span class="bar__fill" id="levelBar"></span></span>
+              <span class="muted" id="levelNext">110 XP to level 4</span>
+            </span>
+          </div>
+          <span class="xp-chip" id="xpChip" title="Learning score"><span data-icon="bolt"></span><b id="xpValue">640</b> XP</span>
+        </div>
+
+        <div class="tip" id="tip" role="status" hidden></div>
+
+        <div class="ai-body">
+          <nav class="ai-rail" id="aiRail" aria-label="Quick help from Maki">
+            <button class="orb orb--gold" type="button" data-orb="hint"><span class="orb__c"><span data-icon="bulb"></span><i class="orb__dot"></i></span><span class="orb__l">Hint</span></button>
+            <button class="orb orb--brand" type="button" data-orb="simplify"><span class="orb__c"><span data-icon="sparkles"></span><i class="orb__dot"></i></span><span class="orb__l">Simplify</span></button>
+            <button class="orb orb--violet" type="button" data-orb="example"><span class="orb__c"><span data-icon="pencil"></span><i class="orb__dot"></i></span><span class="orb__l">Example</span></button>
+            <button class="orb orb--flame" type="button" data-orb="motivate"><span class="orb__c"><span data-icon="flame"></span><i class="orb__dot"></i></span><span class="orb__l">Motivate</span></button>
+          </nav>
+          <div class="ai-feed" id="aiFeed" aria-live="polite"></div>
+        </div>
+
+        <form class="ai-input" id="aiForm" autocomplete="off">
+          <input id="aiText" type="text" placeholder="Ask Maki about this exercise…" aria-label="Ask Maki">
+          <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send"></span></button>
+        </form>
+      </section>
+    </div>
+
+    <!-- Exercise details -->
+    <section class="card details" aria-label="Exercise details">
+      <div class="details__head">
+        <div class="details__titles">
+          <span class="eyebrow" id="exEyebrow">AI exercise</span>
+          <h2 class="details__title" id="exTitle">Exercise</h2>
+        </div>
+        <a class="pill pill--brand" id="backBtn" href="index.html"><span data-icon="chevronLeft"></span>Back to lesson</a>
+      </div>
+
+      <div class="details__actions">
+        <span class="pill pill--outline is-static"><span data-icon="list"></span><span id="exTaskCount">3 tasks</span></span>
+        <span class="pill pill--outline is-static"><span data-icon="clock"></span><span id="exTime">About 5 min</span></span>
+        <span class="pill pill--outline is-static"><span data-icon="bolt"></span>+50 XP</span>
+        <button class="pill pill--outline" id="reportBtn" type="button"><span data-icon="alert"></span>Report a problem</button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" role="tab" type="button" data-tab="about" aria-selected="true">About this exercise</button>
+        <button class="tab" role="tab" type="button" data-tab="attempts" aria-selected="false">My attempts <span class="tab__count" id="attemptsCount">0</span></button>
+      </div>
+      <div class="tab-panel" id="panel-about" role="tabpanel"></div>
+      <div class="tab-panel" id="panel-attempts" role="tabpanel" hidden></div>
+    </section>
+
+    <!-- Course content sidebar -->
+    <aside class="card sidebar" id="sidebar" aria-label="Course content">
+      <div class="sidebar__head">
+        <h2>Course content</h2>
+        <button class="icon-btn" id="collapseAll" type="button" aria-label="Collapse all chapters"><span data-icon="sidebar"></span></button>
+      </div>
+      <div class="sidebar__summary">
+        <div class="sidebar__summary-row">
+          <span id="sumText">24 of 44 done</span>
+          <span class="muted" id="sumTime">4h 12m total</span>
+        </div>
+        <div class="bar"><div class="bar__fill" id="sumBar"></div></div>
+        <div class="filters" role="group" aria-label="Filter content">
+          <button type="button" class="filter is-active" data-filter="all">All</button>
+          <button type="button" class="filter" data-filter="video">Videos</button>
+          <button type="button" class="filter" data-filter="exercise">AI exercises</button>
+          <button type="button" class="filter" data-filter="exam">Exams</button>
+        </div>
+      </div>
+      <div class="sidebar__scroll">
+        <div class="chapters" id="chapters"></div>
+        <div class="onsite" id="onsite"></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal + toasts -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="icon-btn modal__close" type="button" aria-label="Close" data-close><span data-icon="close"></span></button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/exercise.js"></script>
+</body>
+</html>

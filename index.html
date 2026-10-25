@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="css/course.css">
 </head>
-<body>
+<body data-page="course">
 
   <!-- ============ Header ============ -->
   <header class="topbar">
@@ -21,7 +21,7 @@
           <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
         </svg>
       </a>
-      <h1 class="topbar__title">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
+      <h1 class="topbar__title" id="courseTitle">Nano Banana | The Complete Course on AI Image Generation &amp; Editing</h1>
     </div>
 
     <div class="topbar__end">
@@ -60,6 +60,7 @@
       <div class="menu-wrap">
         <button class="icon-btn" id="menuBtn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><span data-icon="dots"></span></button>
         <div class="popover menu" id="menu" role="menu" hidden>
+          <a role="menuitem" href="create.html"><span data-icon="sparkles"></span>Create a course with AI</a>
           <button role="menuitem" type="button" data-menu="rate"><span data-icon="star"></span>Rate this course</button>
           <button role="menuitem" type="button" data-menu="complete"><span data-icon="trophy"></span>Demo: complete everything</button>
           <button role="menuitem" type="button" data-menu="reset"><span data-icon="rewind"></span>Demo: reset progress</button>
@@ -221,6 +222,7 @@
   </div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
+  <script src="js/core.js"></script>
   <script src="js/course.js"></script>
 </body>
 </html>

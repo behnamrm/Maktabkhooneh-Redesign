@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Create a Course with AI – Maktabkhooneh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/course.css">
+  <link rel="stylesheet" href="css/create.css">
+</head>
+<body data-page="create">
+
+  <header class="topbar">
+    <div class="topbar__start">
+      <a class="brand" href="index.html" aria-label="Maktabkhooneh home">
+        <svg class="brand__logo" viewBox="0 0 48 40" aria-hidden="true">
+          <path d="M4 37V16a10 10 0 0 1 20 0 10 10 0 0 1 20 0v21" />
+          <path d="M11 37V19a5.5 5.5 0 0 1 11 0v12l-11 6" />
+          <path d="M37 37V19a5.5 5.5 0 0 0-11 0v12l11 6" />
+        </svg>
+      </a>
+      <h1 class="topbar__title">Create your own course with AI</h1>
+    </div>
+    <div class="topbar__end">
+      <a class="pill pill--soft" href="index.html"><span data-icon="chevronLeft"></span><span class="hide-xs">Back to my course</span></a>
+      <button class="icon-btn icon-btn--soft" type="button" aria-label="Account"><span data-icon="user"></span></button>
+    </div>
+  </header>
+
+  <main class="builder">
+    <section class="card wizard" aria-label="Course builder">
+      <div class="wizard__top">
+        <span class="r-eyebrow"><span data-icon="sparkles"></span>AI course builder</span>
+        <ol class="stepper" id="stepper" aria-label="Steps"></ol>
+      </div>
+      <div class="wizard__body" id="wizBody" aria-live="polite"></div>
+      <div class="wizard__foot" id="wizFoot">
+        <button class="pill pill--ghost" id="backBtn" type="button"><span data-icon="chevronLeft"></span>Back</button>
+        <span class="muted" id="stepCount">Step 1 of 6</span>
+        <button class="pill pill--primary" id="nextBtn" type="button">Continue</button>
+      </div>
+    </section>
+
+    <aside class="card plan" id="plan" aria-label="Your course so far"></aside>
+  </main>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/create.js"></script>
+</body>
+</html>
